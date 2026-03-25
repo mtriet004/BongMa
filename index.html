@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bóng Ma - Huyết Chiến Thời Gian</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <h1>BÓNG MA - HUYẾT CHIẾN THỜI GIAN</h1>
+
+    <div id="game-container">
+      <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+      <div class="hud-layer">
+        <div id="level-display">Màn: 1</div>
+        <div id="timer">00:00</div>
+        <div id="ghost-count">Bóng ma: 0</div>
+        <div id="dash-cooldown">Lướt: Sẵn sàng</div>
+
+        <div id="boss-ui">
+          <div id="boss-name">CHÚA TỂ VÒNG LẶP</div>
+          <div id="boss-hp-bg"><div id="boss-hp-fill"></div></div>
+        </div>
+
+        <div id="health-bar"></div>
+        <div class="shield-icon" id="shield-icon">1</div>
+      </div>
+
+      <!-- UI Screens -->
+      <div id="screen-main" class="overlay">
+        <div class="panel">
+          <h2 id="main-title" class="title-main text-cyan">BẮT ĐẦU VÒNG LẶP</h2>
+          <p id="main-desc" class="desc">
+            Sinh tồn qua những ảo ảnh của chính mình. Cứ 5 màn sẽ có Boss. Nâng
+            cấp mỗi 3 màn.
+          </p>
+          <button id="btn-start">VÀO TRẬN</button>
+          <br /><br />
+          <button
+            id="btn-clear"
+            style="background: #333; color: #aaa; font-size: 12px; padding: 8px"
+          >
+            Reset Toàn Bộ Data
+          </button>
+        </div>
+      </div>
+
+      <div id="screen-upgrade" class="overlay hidden">
+        <div class="panel">
+          <h2 class="title-main text-cyan">ĐỘT PHÁ SỨC MẠNH</h2>
+          <p class="desc">
+            Bạn đã vượt qua 3 màn. Hãy chọn một nâng cấp cho bản thân.
+          </p>
+          <div class="card-container" id="upgrade-cards"></div>
+        </div>
+      </div>
+
+      <div id="screen-boss-reward" class="overlay hidden">
+        <div class="panel">
+          <h2 class="title-main text-gold">CHIẾN LỢI PHẨM BOSS</h2>
+          <p class="desc">
+            Vòng lặp tạm thời bị phá vỡ. Thu thập phần thưởng của bạn.
+          </p>
+          <div class="card-container" id="boss-cards"></div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

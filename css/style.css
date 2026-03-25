@@ -1,0 +1,264 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+body {
+  background-color: #0d0d11;
+  color: #e0e0e0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  overflow: hidden;
+}
+h1 {
+  position: absolute;
+  top: 10px;
+  color: #00ffcc;
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+  font-size: 20px;
+  z-index: 100;
+}
+
+#game-container {
+  position: relative;
+  width: 800px;
+  height: 600px;
+}
+canvas {
+  background-color: #111;
+  border: 2px solid #333;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+  cursor: crosshair;
+}
+
+/* HUD UI */
+.hud-layer {
+  position: absolute;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: 5;
+}
+#level-display {
+  position: absolute;
+  top: 15px;
+  left: 20px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ff00ff;
+  text-shadow: 1px 1px 3px #000;
+}
+#timer {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 3px #000;
+}
+#ghost-count {
+  position: absolute;
+  bottom: 15px;
+  left: 15px;
+  color: #ff4444;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+#dash-cooldown {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  color: #00ffcc;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+/* Health UI */
+#health-bar {
+  position: absolute;
+  bottom: 50px;
+  left: 15px;
+  display: flex;
+  gap: 5px;
+}
+.heart {
+  width: 20px;
+  height: 20px;
+  background: #ff2222;
+  clip-path: polygon(
+    50% 100%,
+    100% 70%,
+    100% 30%,
+    75% 0%,
+    50% 20%,
+    25% 0%,
+    0% 30%,
+    0% 70%
+  );
+  box-shadow: 0 0 5px red;
+}
+.heart.empty {
+  background: #333;
+  box-shadow: none;
+}
+.shield-icon {
+  width: 20px;
+  height: 20px;
+  background: #00aaff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #00aaff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Boss HP */
+#boss-ui {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  display: none;
+  text-align: center;
+}
+#boss-name {
+  color: #ff0055;
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 5px red;
+}
+#boss-hp-bg {
+  width: 100%;
+  height: 12px;
+  background: #333;
+  border: 1px solid #000;
+}
+#boss-hp-fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #ff0000, #ff0055);
+  transition: width 0.1s;
+}
+
+/* Screens */
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+.hidden {
+  display: none !important;
+}
+.panel {
+  background: rgba(20, 20, 25, 0.95);
+  padding: 30px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  text-align: center;
+  max-width: 600px;
+}
+
+h2.title-main {
+  font-size: 32px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+h2.text-red {
+  color: #ff4444;
+}
+h2.text-cyan {
+  color: #00ffcc;
+}
+h2.text-gold {
+  color: #ffd700;
+}
+p.desc {
+  margin-bottom: 25px;
+  color: #ccc;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Cards */
+.card-container {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.card {
+  background: #222;
+  border: 2px solid #555;
+  border-radius: 8px;
+  padding: 20px 10px;
+  width: 160px;
+  cursor: pointer;
+  transition: 0.2s;
+  pointer-events: auto;
+}
+.card:hover {
+  border-color: #00ffcc;
+  transform: translateY(-5px);
+  background: #2a2a30;
+}
+.card h3 {
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+.card p {
+  color: #aaa;
+  font-size: 13px;
+}
+.card.gold:hover {
+  border-color: #ffd700;
+}
+
+button {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #0a0a0c;
+  background: #00ffcc;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+  text-transform: uppercase;
+  margin: 5px;
+  pointer-events: auto;
+}
+button:hover {
+  background: #00e6b8;
+  transform: scale(1.05);
+}
+button:active {
+  transform: scale(0.95);
+}
