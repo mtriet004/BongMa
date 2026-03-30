@@ -2,10 +2,11 @@ import { state } from "../state.js";
 import { FPS } from "../config.js";
 import { dist } from "../utils.js";
 import { UI, updateHealthUI, updateXPUI } from "../ui.js";
+import { playSound } from "./audio.js"; // IMPORT ÂM THANH VÀO ĐÂY
 
 /**
  * Xử lý khi player nhận sát thương.
- * Cập nhật để tính đến Kỹ năng Bất tử
+ * Tính đến grace period, dash, shield.
  */
 export function playerTakeDamage(ctx, canvas, changeStateFn) {
   if (state.player.gracePeriod > 0 || state.player.dashTimeLeft > 0) return;
@@ -23,8 +24,10 @@ export function playerTakeDamage(ctx, canvas, changeStateFn) {
   if (state.player.shield > 0) {
     state.player.shield--;
     state.player.shieldRegenTimer = 5 * FPS;
+    playSound("damage"); // Tiếng vỡ khiên
   } else {
     state.player.hp--;
+    playSound("damage"); // Tiếng mất máu
   }
 
   state.player.gracePeriod = 60;
@@ -37,6 +40,9 @@ export function playerTakeDamage(ctx, canvas, changeStateFn) {
   if (state.player.hp <= 0) changeStateFn("GAME_OVER");
 }
 
+/**
+ * Cộng XP cho player, kiểm tra level-up.
+ */
 export function addExperience(amount, changeStateFn) {
   if (!state.player) return;
   state.player.experience += amount;
@@ -49,6 +55,7 @@ export function addExperience(amount, changeStateFn) {
     );
     state.upgradeFromXP = true;
     updateXPUI();
+    playSound("button"); // Tiếng ting ting khi lên cấp
     changeStateFn("UPGRADE");
     return;
   }
@@ -56,7 +63,7 @@ export function addExperience(amount, changeStateFn) {
 }
 
 /**
- * Cập nhật bullets, tích hợp Đóng băng thời gian.
+ * Cập nhật tất cả bullets: di chuyển, bounce, va chạm boss/ghost/player.
  */
 export function updateBullets(
   ctx,
@@ -84,6 +91,7 @@ export function updateBullets(
       b.life--;
     }
 
+    // Bounce tường
     let hitWall = false;
     if (b.x < b.radius) {
       b.x = b.radius;
@@ -94,7 +102,6 @@ export function updateBullets(
       b.vx *= -1;
       hitWall = true;
     }
-
     if (b.y < b.radius) {
       b.y = b.radius;
       b.vy *= -1;
@@ -118,18 +125,22 @@ export function updateBullets(
     }
 
     if (b.isPlayer) {
+      // Va chạm boss
       if (boss && dist(b.x, b.y, boss.x, boss.y) < boss.radius + b.radius) {
         boss.hp -= 1;
-        state.player.coins = (state.player.coins || 0) + 2;
+        addExperience(2, changeStateFn);
+        state.player.coins = (state.player.coins || 0) + 20;
         UI.bossHp.style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + "%";
         bullets.splice(i, 1);
         if (boss.hp <= 0) {
           state.player.coins = (state.player.coins || 0) + 100;
+          // nextStage được gọi từ flow.js, emit event để tránh circular dep
           state._bossKilled = true;
         }
         continue;
       }
 
+      // Va chạm ghost
       let hitGhost = false;
       for (let j = ghosts.length - 1; j >= 0; j--) {
         let g = ghosts[j];
@@ -140,7 +151,8 @@ export function updateBullets(
         ) {
           if (state.isBossLevel) {
             ghosts.splice(j, 1);
-            state.player.coins = (state.player.coins || 0) + 10;
+            addExperience(15, changeStateFn);
+            state.player.coins = (state.player.coins || 0) + 30;
           } else {
             g.isStunned = 300;
             addExperience(6, changeStateFn);
@@ -153,6 +165,7 @@ export function updateBullets(
       }
       if (hitGhost) continue;
     } else {
+      // Đạn địch trúng player
       if (
         !isInvulnerable &&
         dist(b.x, b.y, player.x, player.y) < player.radius + b.radius - 2

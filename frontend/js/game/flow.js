@@ -9,6 +9,7 @@ import {
 } from "../characters/manager.js";
 import { syncRemoteState, persistState } from "../auth.js";
 import { initSkills } from "./skills.js";
+import { playBGM, stopAllBGM, playSound } from "./audio.js";
 
 export function initGame(isNextLevel = false) {
   let saved = JSON.parse(localStorage.getItem(GHOST_DATA_KEY) || "{}");
@@ -134,10 +135,23 @@ export function changeState(newGameState, gameLoopFn) {
   UI.upgrade.classList.add("hidden");
   UI.bossReward.classList.add("hidden");
 
+  // Xử lý bật tắt nhạc nền tùy theo State
   if (newGameState === "PLAYING") {
+    if (state.isBossLevel) {
+      playBGM(`BOSS_${state.currentLevel}`);
+    } else {
+      playBGM("PLAYING");
+    }
+
     if (state.loopId) cancelAnimationFrame(state.loopId);
     if (gameLoopFn) gameLoopFn();
   } else if (newGameState === "MENU" || newGameState === "GAME_OVER") {
+    if (newGameState === "MENU") playBGM("MENU");
+    if (newGameState === "GAME_OVER") {
+      stopAllBGM();
+      playSound("gameOver");
+    }
+
     UI.main.classList.remove("hidden");
     UI.title.className =
       newGameState === "GAME_OVER"
@@ -165,14 +179,18 @@ export function changeState(newGameState, gameLoopFn) {
       persistState();
 
       UI.btnStart.onclick = () => {
+        playSound("button");
         initGame(false);
         changeState("PLAYING", gameLoopFn);
       };
     } else {
       UI.btnStart.innerText = "VÀO TRẬN";
-      UI.btnStart.onclick = () => startGame(gameLoopFn);
+      UI.btnStart.onclick = () => {
+        startGame(gameLoopFn);
+      };
     }
   } else if (newGameState === "UPGRADE") {
+    playBGM("UPGRADE");
     UI.upgrade.classList.remove("hidden");
     generateCards(
       UPGRADES,
@@ -181,6 +199,7 @@ export function changeState(newGameState, gameLoopFn) {
       () => onCardSelected(gameLoopFn),
     );
   } else if (newGameState === "BOSS_REWARD") {
+    playBGM("BOSS_REWARD");
     UI.bossReward.classList.remove("hidden");
     generateCards(
       BOSS_REWARDS,
@@ -192,6 +211,7 @@ export function changeState(newGameState, gameLoopFn) {
 }
 
 export async function onCardSelected(gameLoopFn) {
+  playSound("button");
   saveGame(state, GHOST_DATA_KEY);
   persistState();
   if (state.upgradeFromXP) {
@@ -204,6 +224,7 @@ export async function onCardSelected(gameLoopFn) {
 }
 
 export async function startGame(gameLoopFn) {
+  playSound("button");
   await syncRemoteState();
   initGame(false);
   changeState("PLAYING", gameLoopFn);

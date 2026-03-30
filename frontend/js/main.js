@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { GHOST_DATA_KEY } from "./config.js";
+import { playSound } from "./game/audio.js";
 import { UI } from "./ui.js";
 import { setupInput } from "./input.js";
 import { initAuth, syncRemoteState } from "./auth.js";
@@ -13,6 +13,12 @@ import { handleSkillsUpdate } from "./game/skills.js";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("button")) {
+    playSound("button");
+  }
+});
 
 function changeStateBound(newState) {
   changeState(newState, gameLoop);
