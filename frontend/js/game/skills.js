@@ -323,6 +323,8 @@ function triggerSkill(key, canvas, changeStateFn) {
     if (key === "q") state.activeBuffs.q = 4 * FPS;
 
     if (key === "e") {
+      // Bắn 12 đạn siêu gần
+      let prevLen = state.bullets.length;
       for (let i = 0; i < Math.PI * 2; i += Math.PI / 6) {
         spawnBullet(
           state.player.x,
@@ -332,30 +334,67 @@ function triggerSkill(key, canvas, changeStateFn) {
           true,
         );
       }
+      for(let i = prevLen; i < state.bullets.length; i++) {
+        state.bullets[i].life = 15; // Rất ngắn
+      }
     }
 
     if (key === "r") {
-      state.player.hp = 1;
-      updateHealthUI();
+      if (state.player.hp > 1) {
+        state.player.hp--;
+        updateHealthUI();
+      }
       state.activeBuffs.r = 5 * FPS;
     }
   }
 
   // ===== ASSASSIN =====
   else if (char === "assassin") {
-    if (key === "q") state.player.dashTimeLeft = 15;
+    if (key === "q") {
+      state.activeBuffs.q = 2 * FPS; // Xuyên đạn 2 giây
+      // Kích hoạt lướt dài
+      let dx = 0, dy = 0;
+      if (state.keys["w"] || state.keys["arrowup"]) dy -= 1;
+      if (state.keys["s"] || state.keys["arrowdown"]) dy += 1;
+      if (state.keys["a"] || state.keys["arrowleft"]) dx -= 1;
+      if (state.keys["d"] || state.keys["arrowright"]) dx += 1;
+      
+      if (dx === 0 && dy === 0) {
+        let mx = state.mouse.x - state.player.x;
+        let my = state.mouse.y - state.player.y;
+        let len = Math.sqrt(mx*mx + my*my);
+        if(len > 0) { dx = mx/len; dy = my/len; }
+      } else {
+        let len = Math.sqrt(dx*dx + dy*dy);
+        dx /= len; dy /= len;
+      }
 
-    if (key === "e") state.activeBuffs.e = 1 * FPS;
+      state.player.dashTimeLeft = 20; // Lướt xa hơn (20 frame thay vì 12)
+      state.player.dashDx = dx;
+      state.player.dashDy = dy;
+      state.player.dashCooldownTimer = state.player.dashMaxCooldown;
+    }
+
+    if (key === "e") state.activeBuffs.e = 10 * FPS; // Đợi đòn đánh tiếp theo
 
     if (key === "r") {
-      for (let i = -0.5; i <= 0.5; i += 0.1) {
-        spawnBullet(
-          state.player.x,
-          state.player.y,
-          state.mouse.x + i * 50,
-          state.mouse.y,
-          true,
-        );
+      // Hình nón dày đặc
+      for (let i = 0; i < 15; i++) {
+        setTimeout(() => {
+          let angOffset = (Math.random() - 0.5) * 0.8;
+          let dirX = state.mouse.x - state.player.x;
+          let dirY = state.mouse.y - state.player.y;
+          let angle = Math.atan2(dirY, dirX) + angOffset;
+          
+          spawnBullet(
+            state.player.x,
+            state.player.y,
+            state.player.x + Math.cos(angle) * 100,
+            state.player.y + Math.sin(angle) * 100,
+            true,
+            1.5
+          );
+        }, i * 60);
       }
     }
   }
@@ -379,7 +418,7 @@ function triggerSkill(key, canvas, changeStateFn) {
 
   // ===== WARDEN =====
   else if (char === "warden") {
-    if (key === "q") state.activeBuffs.q = 3 * FPS;
+    if (key === "q") state.activeBuffs.q = 2.5 * FPS;
 
     if (key === "e") state.activeBuffs.e = 4 * FPS;
 
@@ -389,6 +428,7 @@ function triggerSkill(key, canvas, changeStateFn) {
   // ===== ALCHEMIST =====
   else if (char === "alchemist") {
     if (key === "q") {
+      let prevLen = state.bullets.length;
       for (let i = 0; i < Math.PI * 2; i += Math.PI / 5) {
         spawnBullet(
           state.player.x,
@@ -398,6 +438,11 @@ function triggerSkill(key, canvas, changeStateFn) {
           true,
           1,
         );
+      }
+      for(let i = prevLen; i < state.bullets.length; i++) {
+        let b = state.bullets[i];
+        b.radius = 8;
+        b.life = 40;
       }
     }
 
@@ -411,28 +456,46 @@ function triggerSkill(key, canvas, changeStateFn) {
     }
 
     if (key === "r") {
-      state.bullets.forEach((b) => {
-        if (!b.isPlayer) {
-          b.isPlayer = true;
-        }
-      });
+      state.activeBuffs.r = 3 * FPS;
     }
   }
 
   // ===== ORACLE =====
   else if (char === "oracle") {
-    if (key === "q") state.activeBuffs.q = 5 * FPS;
+    if (key === "q") state.activeBuffs.q = 5 * FPS; // Tầm nhìn 5s
 
-    if (key === "e") state.player.dashTimeLeft = 10;
+    if (key === "e") {
+      // Dịch chuyển đến chuột
+      let mx = state.mouse.x;
+      let my = state.mouse.y;
+      
+      // Clamp vào màn hình
+      mx = Math.max(state.player.radius, Math.min(800 - state.player.radius, mx));
+      my = Math.max(state.player.radius, Math.min(600 - state.player.radius, my));
 
-    if (key === "r") state.activeBuffs.r = 4 * FPS;
+      // Tạo phantom tĩnh (dư ảnh)
+      if (!state.phantoms) state.phantoms = [];
+      state.phantoms.push({
+        x: state.player.x,
+        y: state.player.y,
+        life: 2 * FPS, // Tồn tại 2 giây
+        color: state.player.color,
+        radius: state.player.radius
+      });
+
+      state.player.x = mx;
+      state.player.y = my;
+    }
+
+    if (key === "r") state.activeBuffs.r = 4 * FPS; // Đạn bẻ lái 4s
   }
 
   // ===== SNIPER =====
   else if (char === "sniper") {
-    if (key === "q") state.activeBuffs.q = 5 * FPS;
+    if (key === "q") state.activeBuffs.q = 5 * FPS; // Tụ điểm
 
     if (key === "e") {
+      let prevLen = state.bullets.length;
       spawnBullet(
         state.player.x,
         state.player.y,
@@ -441,20 +504,53 @@ function triggerSkill(key, canvas, changeStateFn) {
         true,
         2,
       );
+      if (state.bullets.length > prevLen) {
+        let b = state.bullets[state.bullets.length - 1];
+        b.pierce = true; // Xuyên thấu!
+        b.damage = 5;    // Cực mạnh
+        b.radius = 8;
+        b.style = 2; // Màu riêng
+      }
     }
 
     if (key === "r") {
+      // Tìm mục tiêu gần nhất tại thời điểm ấn
+      let nearestDist = Infinity;
+      let targetObj = null;
+      let { player, boss, ghosts } = state;
+      if (boss) {
+         nearestDist = Math.sqrt((player.x - boss.x)**2 + (player.y - boss.y)**2);
+         targetObj = boss;
+      }
+      ghosts.forEach(g => {
+         if (g.x > 0 && g.isStunned <= 0) {
+             let d = Math.sqrt((player.x - g.x)**2 + (player.y - g.y)**2);
+             if (d < nearestDist) { nearestDist = d; targetObj = g; }
+         }
+      });
+
       for (let i = 0; i < 5; i++) {
         setTimeout(() => {
+          let tx = state.mouse.x, ty = state.mouse.y;
+          // Cập nhật vị trí đích theo target live, nếu bị tiêu diệt thì bắn vị trí cũ
+          if (targetObj && (targetObj === boss || (targetObj.x > 0 && targetObj.isStunned <= 0))) {
+            tx = targetObj.x; ty = targetObj.y;
+          }
+          let oldLen = state.bullets.length;
           spawnBullet(
             state.player.x,
             state.player.y,
-            state.mouse.x,
-            state.mouse.y,
+            tx,
+            ty,
             true,
             2,
           );
-        }, i * 100);
+          if (state.bullets.length > oldLen) {
+            let b = state.bullets[state.bullets.length - 1];
+            b.damage = 2;
+            b.radius = 6;
+          }
+        }, i * 150);
       }
     }
   }

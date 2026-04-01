@@ -40,9 +40,18 @@ export function draw(ctx, canvas) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  if (player.characterId === "berserker" && buffs.r > 0) {
-    ctx.fillStyle = `rgba(255, 0, 0, ${buffs.r / (5 * 60)})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (player.characterId === "berserker") {
+    if (buffs.r > 0) {
+      ctx.fillStyle = `rgba(255, 0, 0, ${buffs.r / (5 * 60)})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (buffs.q > 0) {
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 6 + Math.random() * 4, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
   }
 
   if (player.characterId === "assassin" && buffs.e > 0) {
@@ -53,9 +62,50 @@ export function draw(ctx, canvas) {
     ctx.stroke();
   }
 
+  if (player.characterId === "summoner" && buffs.q > 0) {
+    let angle = (state.frameCount || 0) * 0.1;
+    for(let i=0; i<2; i++) {
+        let a = angle + i * Math.PI;
+        let x = player.x + Math.cos(a) * 40;
+        let y = player.y + Math.sin(a) * 40;
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = "#b400ff";
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#b400ff";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+  }
+
+  if (player.characterId === "alchemist" && buffs.r > 0) {
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 250, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(0, 255, 128, 0.4)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 10]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(0, 255, 128, 0.05)";
+    ctx.fill();
+  }
+
   if (player.characterId === "summoner" && buffs.r > 0) {
     ctx.fillStyle = "rgba(180, 0, 255, 0.12)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (player.characterId === "warden" && buffs.r > 0) {
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 150, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255, 215, 0, 0.5)";
+    ctx.lineWidth = 4;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = "#ffd700";
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255, 215, 0, 0.05)";
+    ctx.fill();
   }
 
   if (player.characterId === "frost" && buffs.r > 0) {
@@ -228,8 +278,8 @@ export function draw(ctx, canvas) {
 
   // --- Player ---
   let isInvulnSkill =
-    buffs.e > 0 &&
-    (player.characterId === "tank" || player.characterId === "ghost");
+    (buffs.e > 0 && (player.characterId === "tank" || player.characterId === "ghost")) ||
+    (buffs.q > 0 && player.characterId === "warden");
 
   if (player.dashTimeLeft > 0 || isInvulnSkill) {
     ctx.beginPath();

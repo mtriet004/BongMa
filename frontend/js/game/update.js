@@ -11,26 +11,45 @@ export function update(ctx, canvas, changeStateFn) {
   // Khởi tạo dự phòng nếu buff chưa load kịp
   let buffs = activeBuffs || { q: 0, e: 0, r: 0 };
   // ===== NEW CHARACTER BUFF FLAGS =====
+  // ===== NEW CHARACTER BUFF FLAGS =====
   let isBerserkerQ = player.characterId === "berserker" && buffs.q > 0;
   let isBerserkerR = player.characterId === "berserker" && buffs.r > 0;
+  let isAssassinE = player.characterId === "assassin" && buffs.e > 0;
+  let isSummonerE = player.characterId === "summoner" && buffs.e > 0;
+  let isSummonerR = player.characterId === "summoner" && buffs.r > 0;
+  let isWardenE = player.characterId === "warden" && buffs.e > 0;
+  let isWardenR = player.characterId === "warden" && buffs.r > 0;
+  let isAlchemistR = player.characterId === "alchemist" && buffs.r > 0;
 
+  // ===== ORIGINAL CHARACTER BUFF FLAGS =====
   let isHunterE = player.characterId === "hunter" && buffs.e > 0;
   let isFrostR = player.characterId === "frost" && buffs.r > 0;
   let isVoidR = player.characterId === "void" && buffs.r > 0;
   let isStormE = player.characterId === "storm" && buffs.e > 0;
   let isReaperR = player.characterId === "reaper" && buffs.r > 0;
+  
+  let isSniperQ = player.characterId === "sniper" && buffs.q > 0;
+  let isOracleR = player.characterId === "oracle" && buffs.r > 0;
+
   // --- ÁP DỤNG BUFF VÀO CHỈ SỐ KỸ NĂNG ---
   let isSpeedsterQ = player.characterId === "speedster" && buffs.q > 0;
   let currentSpeed = player.speed * (isSpeedsterQ ? 1.5 : 1);
   if (isBerserkerQ) currentSpeed *= 1.2;
+  if (isSniperQ) currentSpeed *= 0.5; // Tụ điểm làm chậm gắp đôi
+  
   let isSpeedsterE = player.characterId === "speedster" && buffs.e > 0;
   let currentFireRate = isSpeedsterE ? 4 : player.fireRate;
   if (isStormE) currentFireRate = Math.max(3, player.fireRate * 0.75);
+  if (isBerserkerQ) currentFireRate = Math.max(2, player.fireRate * 0.65);
+
   let isSharpshootE = player.characterId === "sharpshooter" && buffs.e > 0;
   let currentMultiShot = player.multiShot + (isSharpshootE ? 3 : 0);
+  if (isSummonerE) currentMultiShot += 2;
+  if (isBerserkerR) currentMultiShot *= 2;
 
   let isSharpshootQ = player.characterId === "sharpshooter" && buffs.q > 0;
   let currentBounces = (player.bounces || 0) + (isSharpshootQ ? 2 : 0);
+  if (isWardenE) currentBounces += 2;
 
   let isTimeFrozen = player.characterId === "mage" && buffs.r > 0;
   // --- Grace period & dash cooldown ---
@@ -120,10 +139,45 @@ export function update(ctx, canvas, changeStateFn) {
     state.player.multiShot = currentMultiShot;
     state.player.bounces = currentBounces;
 
-    spawnBullet(player.x, player.y, mouse.x, mouse.y, true);
+    if (isAssassinE) {
+      state.activeBuffs.e = 0; // consume buff
+      // Auto-aim to closest enemy
+      let nearestDist = Infinity;
+      let targetObj = null;
+      if (boss) {
+         nearestDist = dist(player.x, player.y, boss.x, boss.y);
+         targetObj = boss;
+      }
+      state.ghosts.forEach(g => {
+         if (g.x > 0 && g.isStunned <= 0) {
+             let d = dist(player.x, player.y, g.x, g.y);
+             if (d < nearestDist) { nearestDist = d; targetObj = g; }
+         }
+      });
+      
+      let tx = mouse.x, ty = mouse.y;
+      if (targetObj) { tx = targetObj.x; ty = targetObj.y; }
+
+      let oldLen = state.bullets.length;
+      spawnBullet(player.x, player.y, tx, ty, true);
+      for(let i = oldLen; i < state.bullets.length; i++) {
+          let b = state.bullets[i];
+          b.damage = 2; // Double damage
+          b.radius = 8; // Bigger bullet
+      }
+    } else {
+      let oldLen = state.bullets.length;
+      spawnBullet(player.x, player.y, mouse.x, mouse.y, true);
+      if(isSniperQ) {
+         for(let i = oldLen; i < state.bullets.length; i++) {
+             state.bullets[i].damage = 3;
+             state.bullets[i].radius = 6;
+             state.bullets[i].style = 1;
+         }
+      }
+    }
 
     state.player.multiShot = originalMulti;
-    state.player.bounces = originalBounce;
 
     player.cooldown = currentFireRate;
     shotThisFrame = true;
@@ -172,8 +226,84 @@ export function update(ctx, canvas, changeStateFn) {
   }
   // ===== SPECIAL EFFECTS =====
 
+  // Summoner R: Auto fire directions
+  if (isSummonerR && (state.frameCount || 0) % 15 === 0) {
+    for(let i=0; i<4; i++) {
+      let angle = Math.random() * Math.PI * 2;
+      spawnBullet(
+        player.x,
+        player.y,
+        player.x + Math.cos(angle) * 100,
+        player.y + Math.sin(angle) * 100,
+        true
+      );
+    }
+  }
+
+  // Warden R: Holy Sanctuary pushback
+  if (isWardenR) {
+    state.ghosts.forEach(g => {
+      let d = dist(player.x, player.y, g.x, g.y);
+      if (d < 150) {
+        let dx = g.x - player.x;
+        let dy = g.y - player.y;
+        let force = (150 - d) * 0.05;
+        g.x += dx * force / d;
+        g.y += dy * force / d;
+      }
+    });
+  }
+
+  // Alchemist R: Convert enemy bullets to player bullets
+  if (isAlchemistR) {
+    state.bullets.forEach(b => {
+      if (!b.isPlayer && dist(player.x, player.y, b.x, b.y) < 250) {
+        b.isPlayer = true;
+        b.vx *= -1;
+        b.vy *= -1;
+      }
+    });
+  }
+
+  // Oracle R: Homing bullets function
+  if (isOracleR && state.frame % 3 === 0) {
+     state.bullets.forEach(b => {
+        if (b.isPlayer) {
+           let nearestDist = 300; // Search radius for homing
+           let target = null;
+           if (boss) {
+             let d = dist(b.x, b.y, boss.x, boss.y);
+             if (d < nearestDist && d > boss.radius) { nearestDist = d; target = boss; }
+           }
+           state.ghosts.forEach(g => {
+             if (g.isStunned <= 0 && g.x > 0) {
+                let d = dist(b.x, b.y, g.x, g.y);
+                if (d < nearestDist) { nearestDist = d; target = g; }
+             }
+           });
+           
+           if(target) {
+               let currentAngle = Math.atan2(b.vy, b.vx);
+               let targetAngle = Math.atan2(target.y - b.y, target.x - b.x);
+               // Homing strength: 0.1 radians per 3 frames
+               let diff = targetAngle - currentAngle;
+               // Normalize diff to -PI, PI
+               diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+               let maxTurn = 0.15;
+               if(diff > maxTurn) diff = maxTurn;
+               if(diff < -maxTurn) diff = -maxTurn;
+               
+               currentAngle += diff;
+               let speed = Math.sqrt(b.vx*b.vx + b.vy*b.vy);
+               b.vx = Math.cos(currentAngle) * speed;
+               b.vy = Math.sin(currentAngle) * speed;
+           }
+        }
+     });
+  }
+
   // Frost: freeze aura
-  if (isFrostR) {
+  if (player.characterId === "frost" && buffs.r > 0) {
     state.ghosts.forEach((g) => {
       if (g.x > 0 && dist(player.x, player.y, g.x, g.y) < 220) {
         g.isStunned = Math.max(g.isStunned, 30);
