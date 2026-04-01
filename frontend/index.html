@@ -205,12 +205,12 @@
       </div>
     </div>
     <div id="spinner-overlay" class="overlay hidden">
-      <div class="panel" style="text-align:center; max-width:700px; padding:30px;">
-        <h2 id="spinner-title" class="title-main text-cyan">🎰 Đang quay...</h2>
+      <div class="panel" style="text-align:center; max-width:500px; padding:25px;">
+        <h2 id="spinner-title" class="title-main text-cyan" style="font-size:24px;">🎡 Đang quay...</h2>
 
-        <div id="spinner-viewport">
-          <div id="spinner-pointer"></div>
-          <div id="spinner-strip"></div>
+        <div class="wheel-container">
+          <div id="wheel-pointer"></div>
+          <canvas id="wheel-canvas" width="360" height="360"></canvas>
         </div>
 
         <div id="spinner-result" class="spinner-result"></div>
