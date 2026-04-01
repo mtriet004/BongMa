@@ -23,9 +23,102 @@ export function draw(ctx, canvas) {
     ctx.stroke();
   }
 
-  // --- Visual Kỹ Năng ---
+  if (player.characterId === "timekeeper") {
+    if (buffs.e > 0) {
+      ctx.fillStyle = "rgba(0, 255, 255, 0.1)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (buffs.r > 0) {
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 15, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
+      ctx.lineWidth = 4;
+      ctx.setLineDash([10, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
 
-  // Oracle Visuals
+  if (player.characterId === "void") {
+    if (state.voidBlackholes) {
+      state.voidBlackholes.forEach(bh => {
+        ctx.beginPath();
+        ctx.arc(bh.x, bh.y, 40 + Math.sin(state.frameCount * 0.2) * 10, 0, Math.PI * 2);
+        ctx.fillStyle = "black";
+        ctx.fill();
+        ctx.strokeStyle = "purple";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      });
+    }
+    if (buffs.e > 0) {
+      ctx.fillStyle = "rgba(128, 0, 128, 0.2)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (buffs.r > 0 && state.voidLaser) {
+      ctx.beginPath();
+      ctx.moveTo(state.voidLaser.x, state.voidLaser.y);
+      ctx.lineTo(state.voidLaser.x + Math.cos(state.voidLaser.angle) * 2000, state.voidLaser.y + Math.sin(state.voidLaser.angle) * 2000);
+      ctx.strokeStyle = `rgba(100, 0, 200, 0.8)`;
+      ctx.lineWidth = 40;
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(255, 255, 255, 0.9)`;
+      ctx.lineWidth = 15;
+      ctx.stroke();
+    }
+  }
+
+  if (player.characterId === "storm") {
+    if (state.stormLightnings) {
+      for (let i = state.stormLightnings.length - 1; i >= 0; i--) {
+        let l = state.stormLightnings[i];
+        ctx.beginPath();
+        ctx.moveTo(l.x, l.y - 1000);
+        ctx.lineTo(l.x + (Math.random() - 0.5) * 50, l.y - 500);
+        ctx.lineTo(l.x + (Math.random() - 0.5) * 50, l.y);
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.9)";
+        ctx.lineWidth = 6;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(l.x, l.y, 100, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+        ctx.fill();
+
+        l.life--;
+        if (l.life <= 0) state.stormLightnings.splice(i, 1);
+      }
+    }
+    if (state.stormTraps) {
+      state.stormTraps.forEach(t => {
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 15, 0, Math.PI * 2);
+        ctx.fillStyle = (state.frameCount % 10 < 5) ? "rgba(0,255,255,0.8)" : "rgba(255,255,255,0.8)";
+        ctx.fill();
+      });
+    }
+  }
+
+  if (player.characterId === "reaper") {
+    if (buffs.q > 0 && state.reaperSlash) {
+      let s = state.reaperSlash;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 150, s.angle - Math.PI / 2, s.angle + Math.PI / 2);
+      ctx.strokeStyle = `rgba(255, 0, 0, ${buffs.q / 15})`;
+      ctx.lineWidth = 30;
+      ctx.stroke();
+    }
+    if (buffs.r > 0) {
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, 300, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = `rgba(255, 0, 0, ${(1 - buffs.r / (2 * 60)) * 0.3})`;
+      ctx.fill();
+    }
+  }
+
   if (player.characterId === "oracle") {
     if (buffs.q > 0) {
       ctx.fillStyle = "rgba(255, 200, 0, 0.08)";
@@ -42,7 +135,6 @@ export function draw(ctx, canvas) {
     }
   }
 
-  // Phantoms (Dư ảnh của Oracle E)
   if (state.phantoms) {
     state.phantoms.forEach((p) => {
       ctx.beginPath();
@@ -98,7 +190,6 @@ export function draw(ctx, canvas) {
     ctx.stroke();
   }
 
-  // ===== BRAWLER, SCOUT, MEDIC VISUALS =====
   if (player.characterId === "brawler") {
     if (buffs.q > 0) {
       ctx.beginPath();
@@ -291,7 +382,6 @@ export function draw(ctx, canvas) {
   // ===== FROST, GUNNER, HUNTER VISUALS =====
   if (player.characterId === "frost") {
     if (buffs.q > 0) {
-      // Khối băng phong ấn bản thân
       ctx.beginPath();
       ctx.arc(player.x, player.y, player.radius + 15, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(0, 200, 255, 0.6)";
@@ -300,14 +390,12 @@ export function draw(ctx, canvas) {
       ctx.lineWidth = 4;
       ctx.stroke();
 
-      // Hào quang lạnh lẽo xung quanh
       ctx.beginPath();
       ctx.arc(player.x, player.y, 100, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(0, 200, 255, 0.1)";
       ctx.fill();
     }
     if (buffs.r > 0) {
-      // Bão tuyết
       ctx.beginPath();
       ctx.arc(player.x, player.y, 200, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(100, 200, 255, 0.15)";
@@ -321,7 +409,6 @@ export function draw(ctx, canvas) {
   }
 
   if (player.characterId === "gunner") {
-    // Q: Tia Laser
     if (buffs.q > 0 && state.gunnerLaser) {
       ctx.beginPath();
       ctx.moveTo(state.gunnerLaser.x, state.gunnerLaser.y);
@@ -333,7 +420,6 @@ export function draw(ctx, canvas) {
       ctx.lineWidth = 5;
       ctx.stroke();
     }
-    // E: Mìn Không Gian
     if (state.gunnerMines) {
       state.gunnerMines.forEach(m => {
         ctx.beginPath();
@@ -342,14 +428,13 @@ export function draw(ctx, canvas) {
         ctx.fill();
         ctx.beginPath();
         ctx.arc(m.x, m.y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = (state.frameCount % 20 < 10) ? "#ff0000" : "#550000"; // Nhấp nháy đỏ
+        ctx.fillStyle = (state.frameCount % 20 < 10) ? "#ff0000" : "#550000";
         ctx.fill();
       });
     }
-    // R: Pháo Kích (Cảnh báo đỏ)
     if (state.gunnerAirstrikes) {
       state.gunnerAirstrikes.forEach(strike => {
-        let maxT = 1 * 60; // 1s
+        let maxT = 1 * 60;
         let progress = 1 - (strike.timer / maxT);
         ctx.beginPath();
         ctx.arc(strike.x, strike.y, 200, 0, Math.PI * 2);
@@ -365,7 +450,6 @@ export function draw(ctx, canvas) {
     }
   }
 
-  // Hiệu ứng cháy nổ chung (Mìn, Pháo kích)
   if (state.explosions) {
     for (let i = state.explosions.length - 1; i >= 0; i--) {
       let exp = state.explosions[i];
@@ -381,7 +465,6 @@ export function draw(ctx, canvas) {
   }
 
   if (player.characterId === "hunter") {
-    // Vòng sáng chỉ bật khi E đang tác dụng
     if (buffs.e > 0) {
       ctx.beginPath();
       ctx.arc(player.x, player.y, 300, 0, Math.PI * 2);
@@ -393,13 +476,11 @@ export function draw(ctx, canvas) {
       ctx.fillStyle = "rgba(255, 100, 0, 0.05)";
       ctx.fill();
     }
-
-    // Q: Bẫy
     if (state.hunterTraps) {
       state.hunterTraps.forEach(trap => {
         ctx.beginPath();
         ctx.arc(trap.x, trap.y, 15, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(139, 69, 19, 0.8)"; // Màu nâu
+        ctx.strokeStyle = "rgba(139, 69, 19, 0.8)";
         ctx.setLineDash([5, 5]);
         ctx.lineWidth = 4;
         ctx.stroke();
@@ -512,10 +593,17 @@ export function draw(ctx, canvas) {
     ctx.beginPath();
     ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2);
 
-    if (player.characterId === "mage" && buffs.r > 0) ctx.fillStyle = "#00aaff";
-    else ctx.fillStyle = g.isStunned > 0 ? "#333" : "#ff4444";
+    // SỬA LỖI MÀU QUÁI: Nếu quái bị choáng/chậm, làm mờ đi thay vì sơn màu đen
+    if (player.characterId === "mage" && buffs.r > 0) {
+      ctx.fillStyle = "#00aaff";
+    } else {
+      ctx.globalAlpha = g.isStunned > 0 ? 0.4 : 1.0;
+      ctx.fillStyle = "#ff4444";
+    }
 
     ctx.fill();
+    ctx.globalAlpha = 1.0; // Reset lại alpha
+
     if (g.isStunned <= 0) {
       ctx.strokeStyle = isDashing ? "#00ffcc" : "#ff0000";
       ctx.lineWidth = 2;
@@ -529,10 +617,9 @@ export function draw(ctx, canvas) {
 
   for (let b of bullets) {
     if (b.isShuriken) {
-      // Vẽ phi tiêu / lốc xoáy cho Hunter R
       ctx.save();
       ctx.translate(b.x, b.y);
-      ctx.rotate(state.frameCount * 0.3); // Xoay vòng
+      ctx.rotate(state.frameCount * 0.3);
       ctx.beginPath();
       ctx.moveTo(-b.radius, 0); ctx.lineTo(b.radius, 0);
       ctx.moveTo(0, -b.radius); ctx.lineTo(0, b.radius);
@@ -551,9 +638,8 @@ export function draw(ctx, canvas) {
       } else {
         ctx.fillStyle = b.style === 1 ? "#ff00ff" : "#ff4444";
 
-        // FROST R: Highlight nếu đạn địch đang ở trong vùng Bão tuyết sẽ bị đổi màu lạnh
         if (isFrostR && dist(b.x, b.y, player.x, player.y) < 200) {
-          ctx.fillStyle = "#00ffff"; // Chuyển màu đạn địch thành xanh băng
+          ctx.fillStyle = "#00ffff";
           ctx.shadowBlur = 10;
           ctx.shadowColor = "#00ffff";
         }
@@ -565,7 +651,7 @@ export function draw(ctx, canvas) {
         }
       }
       ctx.fill();
-      ctx.shadowBlur = 0; // reset shadow
+      ctx.shadowBlur = 0;
     }
   }
 
@@ -596,7 +682,7 @@ export function draw(ctx, canvas) {
   // --- Player ---
   let isInvulnSkill =
     (buffs.e > 0 &&
-      (player.characterId === "tank" || player.characterId === "ghost")) ||
+      (player.characterId === "tank" || player.characterId === "ghost" || player.characterId === "reaper")) ||
     (buffs.q > 0 && (player.characterId === "warden" || player.characterId === "frost"));
 
   if (player.dashTimeLeft > 0 || isInvulnSkill) {
@@ -610,6 +696,13 @@ export function draw(ctx, canvas) {
     );
     ctx.fillStyle =
       player.characterId === "ghost" ? "rgba(100,100,255,0.5)" : "white";
+
+    if (player.characterId === "reaper" && buffs.e > 0) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
     ctx.shadowBlur = 20;
     ctx.shadowColor = "white";
     ctx.fill();
