@@ -281,7 +281,7 @@ export const CHARACTERS = [
     skills: [
       {
         key: "q",
-        name: "LinHồn Hộ Vệ",
+        name: "Linh Hồn Hộ Vệ",
         desc: "Triệu hồi 2 bóng đạn bay vòng quanh bảo vệ bạn trong 6 giây. (Hồi: 14s)",
         cooldown: 14,
         initialCooldown: 0,
@@ -372,7 +372,7 @@ export const CHARACTERS = [
       {
         key: "q",
         name: "Tầm Nhìn",
-        desc: "Hiển thị đường đi của đạn địch rõ hơn trong 5 giây. (Hồi: 12s)",
+        desc: "Làm chậm mọi đường đạn của kẻ thù trong 3s. (Hồi: 12s)",
         cooldown: 12,
         initialCooldown: 0,
       },

@@ -11,13 +11,13 @@ import { playSound } from "./audio.js"; // IMPORT ÂM THANH VÀO ĐÂY
 export function playerTakeDamage(ctx, canvas, changeStateFn) {
   if (state.player.gracePeriod > 0 || state.player.dashTimeLeft > 0) return;
 
-  // Bất tử từ Kỹ năng Tank E hoặc Ghost Q
+  // Bất tử từ Kỹ năng
   let buffs = state.activeBuffs || { q: 0, e: 0, r: 0 };
-  if (
-    buffs.e > 0 &&
-    (state.player.characterId === "tank" ||
-      state.player.characterId === "ghost")
-  ) {
+  let isInvulnSkill =
+    (buffs.e > 0 && (state.player.characterId === "tank" || state.player.characterId === "ghost")) ||
+    (buffs.q > 0 && (state.player.characterId === "warden" || state.player.characterId === "assassin"));
+
+  if (isInvulnSkill) {
     return;
   }
 
@@ -74,10 +74,11 @@ export function updateBullets(
   let { player, boss, bullets, ghosts } = state;
   let buffs = state.activeBuffs || { q: 0, e: 0, r: 0 };
   let isInvulnSkill =
-    buffs.e > 0 &&
-    (player.characterId === "tank" || player.characterId === "ghost");
+    (buffs.e > 0 && (player.characterId === "tank" || player.characterId === "ghost")) ||
+    (buffs.q > 0 && (player.characterId === "warden" || player.characterId === "assassin"));
   let isInvulnerable =
     player.gracePeriod > 0 || player.dashTimeLeft > 0 || isInvulnSkill;
+  let isSummonerQ = player.characterId === "summoner" && buffs.q > 0;
 
   for (let i = bullets.length - 1; i >= 0; i--) {
     let b = bullets[i];
@@ -126,8 +127,9 @@ export function updateBullets(
 
     if (b.isPlayer) {
       if (boss && dist(b.x, b.y, boss.x, boss.y) < boss.radius + b.radius) {
-        boss.hp -= 1;
+        boss.hp -= (b.damage || 1);
         UI.bossHp.style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + "%";
+        // Sniper piercing shot stops at Boss for balance
         bullets.splice(i, 1);
         if (boss.hp <= 0) {
           state.player.coins = (state.player.coins || 0) + 100;
@@ -149,17 +151,41 @@ export function updateBullets(
             ghosts.splice(j, 1);
             state.player.coins = (state.player.coins || 0) + 10;
           } else {
-            g.isStunned = 300;
+            g.isStunned = (b.damage === 2) ? 600 : 300;
+            g.hp = (g.hp || 1) - (b.damage || 1);
             addExperience(6, changeStateFn);
             state.player.coins = (state.player.coins || 0) + 5;
           }
-          bullets.splice(i, 1);
           hitGhost = true;
+          // Piercing bullets do not get destroyed by ghosts
+          if (!b.pierce) {
+            if (b.bounces > 0) {
+              b.bounces--;
+              let angle = Math.atan2(b.vy, b.vx);
+              angle += Math.PI + (Math.random() * 1 - 0.5); // bounce randomly off ghost
+              let speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+              b.vx = Math.cos(angle) * speed;
+              b.vy = Math.sin(angle) * speed;
+              hitGhost = false; // Don't splice yet since it bounced
+            }
+          } else {
+            hitGhost = false; // Pierce active, don't splice
+          }
           break;
         }
       }
-      if (hitGhost) continue;
+      if (hitGhost) {
+        bullets.splice(i, 1);
+        continue;
+      }
     } else {
+      // Đạn địch
+      if (isSummonerQ && dist(b.x, b.y, player.x, player.y) < player.radius + 40) {
+        // Đạn địch bị phá hủy bởi khiên quay của Summoner
+        bullets.splice(i, 1);
+        continue;
+      }
+
       // Đạn địch trúng player
       if (
         !isInvulnerable &&
@@ -168,6 +194,31 @@ export function updateBullets(
         playerTakeDamage(ctx, canvas, changeStateFn);
         bullets.splice(i, 1);
         continue;
+      }
+    }
+  }
+
+  // Summoner Q damages enemies
+  if (isSummonerQ && Math.random() < 0.15) {
+    if (boss && dist(player.x, player.y, boss.x, boss.y) < boss.radius + 45) {
+      boss.hp -= 1;
+      UI.bossHp.style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + "%";
+      if (boss.hp <= 0) {
+        state.player.coins = (state.player.coins || 0) + 100;
+        state._bossKilled = true;
+      }
+    }
+    for (let j = ghosts.length - 1; j >= 0; j--) {
+      let g = ghosts[j];
+      if (g.isStunned <= 0 && g.x > 0 && dist(player.x, player.y, g.x, g.y) < player.radius + 45) {
+        if (state.isBossLevel) {
+          ghosts.splice(j, 1);
+          state.player.coins = (state.player.coins || 0) + 10;
+        } else {
+          g.isStunned = 300;
+          addExperience(6, changeStateFn);
+          state.player.coins = (state.player.coins || 0) + 5;
+        }
       }
     }
   }
