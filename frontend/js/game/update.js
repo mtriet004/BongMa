@@ -2,7 +2,7 @@ import { state } from "../state.js";
 import { FPS } from "../config.js";
 import { dist } from "../utils.js";
 import { UI, updateHealthUI } from "../ui.js";
-import { spawnBullet, spawnBossAttack, bossSummonGhosts } from "../entities.js";
+import { spawnBullet, updateBoss, bossSummonGhosts } from "../entities.js";
 import { updateBullets, playerTakeDamage } from "./combat.js";
 
 export function update(ctx, canvas, changeStateFn) {
@@ -63,6 +63,30 @@ export function update(ctx, canvas, changeStateFn) {
   if (isBrawlerE) currentSpeed *= 1.3;
   if (isMedicE) currentSpeed *= 1.2;
   if (isScoutR) currentSpeed *= 1.4;
+
+  // Apply Elemental Debuffs
+  let s = state.playerStatus;
+  if (s.slowTimer > 0) {
+    s.slowTimer--;
+    currentSpeed *= 0.5;
+  }
+  if (s.stunTimer > 0) {
+    s.stunTimer--;
+    currentSpeed = 0;
+  }
+  if (s.burnTimer > 0) {
+    s.burnTimer--;
+
+    // Check xem có đang trong trạng thái bất tử không
+    let isInvincible = player.dashTimeLeft > 0 || player.gracePeriod > 0 ||
+      (buffs.e > 0 && ["tank", "knight", "reaper"].includes(player.characterId)) ||
+      (buffs.q > 0 && ["warden", "ghost", "assassin", "spirit", "frost"].includes(player.characterId));
+
+    if (state.frameCount % 30 === 0 && !isInvincible) {
+      player.hp -= 0.2; // Chỉ trừ máu khi KHÔNG bất tử
+      updateHealthUI();
+    }
+  }
 
   if (isFrostQ) currentSpeed = 0;
   if (isReaperE) currentSpeed *= 1.5;
@@ -142,10 +166,49 @@ export function update(ctx, canvas, changeStateFn) {
     player.y += player.dashDy * (currentSpeed * 3);
     if (player.dashEffect) player.dashEffect();
     player.dashTimeLeft--;
+    // Dash I-frames: Invincible during first 10 frames of dash
+    player.isInvincible = player.dashTimeLeft > 2;
   } else {
     player.x += dx * currentSpeed;
     player.y += dy * currentSpeed;
+    player.isInvincible = false;
   }
+
+  // --- Safe Zones Update (Moving/Shrinking) ---
+  for (let sz of state.safeZones) {
+    if (sz.vx) sz.x += sz.vx;
+    if (sz.vy) sz.y += sz.vy;
+    // Bounce off walls
+    if (sz.x < 50 || sz.x > 750) sz.vx *= -1;
+    if (sz.y < 50 || sz.y > 550) sz.vy *= -1;
+
+    if (sz.shrinking) {
+      sz.radius = Math.max(20, sz.radius - 0.05);
+      if (sz.radius < 50) sz.pulse = (Math.sin(state.frameCount * 0.2) + 1) * 0.5;
+    }
+  }
+
+  // --- Elemental interactions & Hazards ---
+  state.hazards.forEach(h => {
+    // Terrain Collision (Earth Spikes/Barriers)
+    if (h.type === "rock" && h.active) {
+      const dxh = player.x - h.x;
+      const dyh = player.y - h.y;
+      const d = Math.sqrt(dxh * dxh + dyh * dyh);
+      const minDist = player.radius + h.radius;
+      if (d < minDist) {
+        const angle = Math.atan2(dyh, dxh);
+        player.x = h.x + Math.cos(angle) * minDist;
+        player.y = h.y + Math.sin(angle) * minDist;
+      }
+    }
+    // Fire melts Ice
+    if (h.type === "fire" && dist(player.x, player.y, h.x, h.y) < h.radius + player.radius) {
+      if (state.playerStatus && state.playerStatus.freezeTimer > 0) {
+        state.playerStatus.freezeTimer = 0;
+      }
+    }
+  });
 
   player.x = Math.max(
     player.radius,
@@ -155,6 +218,33 @@ export function update(ctx, canvas, changeStateFn) {
     player.radius,
     Math.min(canvas.height - player.radius, player.y),
   );
+
+  // --- Terrain Collision (Earth Spikes/Barriers) ---
+  state.hazards.forEach(h => {
+    if (h.type === "rock" && h.active) {
+      const dxh = player.x - h.x;
+      const dyh = player.y - h.y;
+      const dist = Math.sqrt(dxh * dxh + dyh * dyh);
+      const minDist = player.radius + h.radius;
+      if (dist < minDist) {
+        // Push player out of the rock (Physically blocked)
+        const angle = Math.atan2(dyh, dxh);
+        player.x = h.x + Math.cos(angle) * minDist;
+        player.y = h.y + Math.sin(angle) * minDist;
+      }
+    }
+    // Fire melts Ice:
+    if (h.type === "fire" && h.active) {
+      const dxh = player.x - h.x;
+      const dyh = player.y - h.y;
+      const dist = Math.sqrt(dxh * dxh + dyh * dyh);
+      if (dist < h.radius + player.radius) {
+        if (state.playerStatus.freezeTimer > 0) {
+          state.playerStatus.freezeTimer = 0; // Thaw instantly in fire
+        }
+      }
+    }
+  });
 
   // --- Shooting ---
   let shotThisFrame = false;
@@ -277,10 +367,40 @@ export function update(ctx, canvas, changeStateFn) {
     isInvulnSkill ||
     isFrostQ;
 
-  // --- Boss logic ---
+  // --- Boss Shield/Stance Logic ---
+  if (state.boss && state.boss.shieldActive && state.boss.shield <= 0) {
+    state.boss.shieldActive = false;
+    state.boss.stunTimer = 180; // Boss bị choáng 3 giây
+
+    // SỬA LỖI ĐÁNH VẦN Ở ĐÂY: Hủy gồng chiêu và xóa UI ngay lập tức
+    state.bossSpecial.timer = 0;
+    state.bossSpecial.name = "";
+
+    state.screenShake.timer = 30;
+    state.screenShake.intensity = 15;
+    state.screenShake.type = 'thunder'; // Hiệu ứng vỡ giáp
+
+    // Dọn dẹp các mìn/bẫy đang cast dở
+    state.bossBeams = [];
+    state.groundWarnings = [];
+    state.safeZones = [];
+  }
+
+  if (state.boss && state.boss.stunTimer > 0) {
+    state.boss.stunTimer--;
+    if (state.boss.stunTimer % 20 < 10) {
+      state.boss.color = "#ffffff"; // Flash white when stunned
+    } else {
+      state.boss.color = state.boss.originalColor || "#ff0055";
+    }
+  }
+
+  // --- Boss Logic ---
+  if (state.boss && state.boss.hp > 0) {
+    updateBoss(state.boss);
+  }
   if (!isTimeFrozen) {
     if (boss) {
-      spawnBossAttack();
       if (!boss.ghostsActive) {
         if (boss.summonCooldown > 0) boss.summonCooldown--;
         if (boss.summonCooldown <= 0) {
@@ -309,7 +429,7 @@ export function update(ctx, canvas, changeStateFn) {
       } else {
         phase = ratio > 0.5 ? 0 : 1;
       }
-      
+
       if (state.lastBossPhase !== -1 && state.lastBossPhase !== phase) {
         state.phaseTransitionTimer = 120; // 2 seconds
         state.currentPhaseName = `GIAI ĐOẠN ${phase + 1}`;
@@ -319,6 +439,115 @@ export function update(ctx, canvas, changeStateFn) {
   }
 
   if (state.phaseTransitionTimer > 0) state.phaseTransitionTimer--;
+
+  // ===== HAZARD MANAGEMENT =====
+  for (let i = state.hazards.length - 1; i >= 0; i--) {
+    const h = state.hazards[i];
+    h.life--;
+
+    // Warning transition for rocks
+    if (h.type === "rock" && h.life < h.maxLife - 60) h.active = true;
+
+    // Direct collision for damage
+    const playerDist = dist(player.x, player.y, h.x, h.y);
+    let isColliding = false;
+
+    // SỬA ĐỔI: Va chạm rỗng cho Fire Ring (Sóng Lửa)
+    if (h.type === "fire_ring") {
+      // Chỉ dính đòn nếu người chơi chạm vào VÀNH của vòng tròn (độ dày vành cỡ 20px)
+      if (Math.abs(playerDist - h.radius) < 20 + player.radius) {
+        isColliding = true;
+      }
+    } else {
+      // Va chạm đặc cho các bẫy khác
+      isColliding = playerDist < player.radius + h.radius;
+    }
+
+    if (isColliding) {
+      if (h.type === "fire" || h.type === "fire_ring") {
+        state.playerStatus.burnTimer = 60; // Refresh burn
+      } else if (h.type === "frost") {
+        state.playerStatus.slowTimer = 30; // Ground slow
+      } else if (h.type === "static") {
+        state.playerStatus.stunTimer = 10;
+      } else if (h.type === "vortex") {
+        // Hút người chơi vào tâm rất mạnh
+        const angle = Math.atan2(h.y - player.y, h.x - player.x);
+        player.x += Math.cos(angle) * 4;
+        player.y += Math.sin(angle) * 4;
+      }
+    }
+
+    if (h.life <= 0) state.hazards.splice(i, 1);
+  }
+
+  // --- Ground Warnings & Safe Zones ---
+  for (let i = state.groundWarnings.length - 1; i >= 0; i--) {
+    state.groundWarnings[i].timer--;
+    if (state.groundWarnings[i].timer <= 0) state.groundWarnings.splice(i, 1);
+  }
+  for (let i = state.safeZones.length - 1; i >= 0; i--) {
+    state.safeZones[i].timer--;
+    if (state.safeZones[i].timer <= 0) state.safeZones.splice(i, 1);
+  }
+
+  // --- Global Hazard Logic ---
+  if (state.globalHazard.active) {
+    state.globalHazard.timer--;
+
+    // Check if player is in a safe zone
+    let inSafeZone = false;
+    for (let sz of state.safeZones) {
+      if (dist(player.x, player.y, sz.x, sz.y) < sz.radius) {
+        inSafeZone = true;
+        break;
+      }
+    }
+
+    if (!inSafeZone) {
+      if (state.frameCount % 20 === 0) {
+        playerTakeDamage(ctx, canvas, changeStateFn, state.globalHazard.damage || 0.5);
+      }
+
+      // NÂNG CẤP: Khi người chơi đứng ngoài vòng an toàn của Boss Băng
+      if (state.globalHazard.type === "ice") {
+        state.playerStatus.slowTimer = 5; // Làm chậm di chuyển liên tục
+        player.cooldown += 0.5;           // Súng bị đóng băng, tốc độ bắn giảm cực mạnh
+      } else if (state.globalHazard.type === "wind") {
+        // Gió xoáy đùn người chơi văng lạng lách quanh màn hình
+        const windAngle = state.frameCount * 0.05;
+        player.x += Math.cos(windAngle) * 5;
+        player.y += Math.sin(windAngle) * 5;
+
+        // Kèm thêm lực hút giật ngược vào tâm Boss!
+        const dx = boss.x - player.x;
+        const dy = boss.y - player.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 0) {
+          player.x += (dx / len) * 3;
+          player.y += (dy / len) * 3;
+        }
+      } else if (state.globalHazard.type === "electric") {
+        // Sinh hạt điện li ti quanh người chơi
+        if (state.frameCount % 5 === 0) {
+          state.particles.push({
+            x: player.x + (Math.random() - 0.5) * 100,
+            y: player.y + (Math.random() - 0.5) * 100,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            life: 20,
+            color: "#00ffff",
+            size: 1 + Math.random() * 2
+          });
+        }
+      }
+    }
+
+    if (state.globalHazard.timer <= 0) state.globalHazard.active = false;
+  }
+
+  // Update Windforce
+  if (state.windForce.timer > 0) state.windForce.timer--;
 
   // ===== SPECIAL EFFECTS =====
   //Painter
@@ -451,7 +680,7 @@ export function update(ctx, canvas, changeStateFn) {
     });
 
     if (state.painterTrails.length < 300) {
-        state.painterTrails.push(...newTrails);
+      state.painterTrails.push(...newTrails);
     }
   }
   state.painterTrails.forEach((t) => t.life--);
@@ -1020,13 +1249,12 @@ export function update(ctx, canvas, changeStateFn) {
       g.respawnTimer = 5 * FPS; // Tăng lên 5 giây cho rõ ràng
       g.x = -100;
       g.y = -100;
-      continue;
     }
-    
+
     if (g.isRespawning) {
       g.respawnTimer--;
       g.timer++;
-      
+
       // Cho ma xuất hiện lại ở vị trí bản ghi trước khi thực sự hồi sinh để "cảnh báo"
       if (g.respawnTimer < 1 * FPS) { // 1 giây cuối
         let exactIndex = g.timer * g.speedRate;
@@ -1232,18 +1460,18 @@ export function update(ctx, canvas, changeStateFn) {
         // Target nearest (Boss or ghost)
         let target = boss;
         if (!target || target.hp <= 0) {
-            let nd = Infinity;
-            ghosts.forEach(g => {
-                let d = dist(player.x, player.y, g.x, g.y);
-                if (d < nd) { nd = d; target = g; }
-            });
+          let nd = Infinity;
+          ghosts.forEach(g => {
+            let d = dist(player.x, player.y, g.x, g.y);
+            if (d < nd) { nd = d; target = g; }
+          });
         }
-        
+
         if (target) {
-            const ox = player.x + Math.cos(orb.angle) * orb.orbitRadius;
-            const oy = player.y + Math.sin(orb.angle) * orb.orbitRadius;
-            spawnBullet(ox, oy, target.x, target.y, true, 3, "player");
-            orb.fireCD = 40;
+          const ox = player.x + Math.cos(orb.angle) * orb.orbitRadius;
+          const oy = player.y + Math.sin(orb.angle) * orb.orbitRadius;
+          spawnBullet(ox, oy, target.x, target.y, true, 3, "player");
+          orb.fireCD = 40;
         }
       }
       return orb.life > 0;
@@ -1291,6 +1519,7 @@ export function update(ctx, canvas, changeStateFn) {
           player.y + Math.sin(angle) * 100,
           true, 2, "player");
       }
+      // --- Ground Warnings (Energy Beams & Bloom) ---
       state.knightShield = null;
     }
   }
@@ -1301,8 +1530,114 @@ export function update(ctx, canvas, changeStateFn) {
     if (state.knightRage.life <= 0) state.knightRage = null;
   }
 
+  // --- Ground Warning Interaction ---
+  if (state.groundWarnings) {
+    state.groundWarnings = state.groundWarnings.filter(w => {
+      w.timer--;
+      const distToCenter = dist(player.x, player.y, w.x, w.y);
+
+      // Geyser sủi bọt gây bỏng nếu đứng trên nó
+      if (w.type === "geyser" || w.type === "laser") {
+        const inVerticalBeam = Math.abs(player.x - w.x) < w.radius && player.y <= w.y;
+        if (distToCenter < w.radius || inVerticalBeam) {
+          state.playerStatus.burnTimer = Math.max(state.playerStatus.burnTimer, 15);
+          if (state.frameCount % 30 === 0) playerTakeDamage(ctx, canvas, changeStateFn, 0.5);
+        }
+      }
+      // Bóng thiên thạch chỉ làm chậm (khóa mục tiêu), KHÔNG gây bỏng trước khi đá rơi
+      else if (w.type === "meteor") {
+        if (distToCenter < w.radius) {
+          state.playerStatus.slowTimer = Math.max(state.playerStatus.slowTimer, 2);
+        }
+      }
+      // Gai đất (spike)
+      else if (w.type === "spike") {
+        if (distToCenter < w.radius) state.playerStatus.slowTimer = Math.max(state.playerStatus.slowTimer, 2);
+      }
+
+      return w.timer > 0;
+    });
+  }
+
   if (!state.isBossLevel && state.frameCount >= state.maxFramesToSurvive) {
     return "STAGE_CLEAR";
+  }
+
+  // --- Hazard Processing ---
+  if (state.hazards) {
+    state.hazards = state.hazards.filter(h => {
+      h.life--;
+
+      // SỬA ĐỔI: Tốc độ bung (nở) nhanh hơn đối với Sóng Lửa (fire_ring)
+      if (h.expanding && h.radius < h.targetRadius) {
+        let expandSpeed = h.type === "fire_ring" ? 0.08 : 0.15;
+        h.radius += (h.targetRadius - h.radius) * expandSpeed;
+        if (Math.abs(h.targetRadius - h.radius) < 1) {
+          h.radius = h.targetRadius;
+          h.expanding = false;
+        }
+      }
+
+      // Damage & De-buffs
+      if (h.owner === "boss" && h.active) {
+        const d = dist(player.x, player.y, h.x, h.y);
+        let isColliding = false;
+
+        if (h.type === "fire_ring") {
+          // Va chạm viền (ring hit detection)
+          if (Math.abs(d - h.radius) < 20 + player.radius) isColliding = true;
+        } else {
+          if (d < h.radius + player.radius) isColliding = true;
+        }
+
+        if (isColliding) {
+          // Hazard Status Effects
+          let isInvincible = player.dashTimeLeft > 0 || player.gracePeriod > 0 ||
+            (buffs.e > 0 && ["tank", "knight", "reaper"].includes(player.characterId)) ||
+            (buffs.q > 0 && ["warden", "ghost", "assassin", "spirit", "frost"].includes(player.characterId));
+
+          // Kéo người chơi (Lốc xoáy) thì vẫn hoạt động, nhưng miễn nhiễm debuff và damage
+          if (h.type === "vortex") {
+            const angle = Math.atan2(h.y - player.y, h.x - player.x);
+            player.x += Math.cos(angle) * 2;
+            player.y += Math.sin(angle) * 2;
+          }
+
+          if (!isInvincible) {
+            // Hazard Status Effects
+            if (h.type === "fire" || h.type === "fire_ring") state.playerStatus.burnTimer = 30;
+            if (h.type === "frost") state.playerStatus.slowTimer = 30;
+            if (h.type === "static") state.playerStatus.stunTimer = 10;
+          }
+
+          // Tick-based Damage with 100ms (6 frames) initial grace period
+          if (h.firstEnterTime === 0) {
+            h.firstEnterTime = state.frameCount;
+          }
+
+          const stayDuration = state.frameCount - h.firstEnterTime;
+          if (stayDuration >= 6) { // 100ms grace
+            if (state.frameCount - (player.lastHazardDamageTime || 0) >= 30) { // 0.5s tick
+              playerTakeDamage(ctx, canvas, changeStateFn, h.damage || 0.5);
+              player.lastHazardDamageTime = state.frameCount;
+            }
+          }
+        } else {
+          h.firstEnterTime = 0; // Reset if they leave
+        }
+      }
+      return h.life > 0;
+    });
+  }
+
+  // --- Particle Updates ---
+  if (state.particles) {
+    state.particles = state.particles.filter(p => {
+      p.x += p.vx || 0;
+      p.y += p.vy || 0;
+      p.life--;
+      return p.life > 0;
+    });
   }
 
   state.frameCount++;
