@@ -246,6 +246,22 @@ export function draw(ctx, canvas) {
         ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
+    } else if (state.globalHazard.type === "ice") {
+      // THÊM MỚI TẠI ĐÂY: Hiệu ứng sương giá và tuyết rơi bão bùng
+      ctx.fillStyle = "rgba(0, 200, 255, 0.15)"; // Phủ sương xanh mờ
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (state.frameCount % 2 === 0) {
+        state.particles.push({
+          x: Math.random() * canvas.width,
+          y: -10, // Tuyết rơi từ trên xuống
+          vx: (Math.random() - 0.5) * 4, // Gió thổi ngang mạnh
+          vy: 2 + Math.random() * 4,     // Tốc độ rơi
+          life: 240,
+          color: "#ffffff",
+          size: 2 + Math.random() * 3
+        });
+      }
     }
     ctx.restore();
   }

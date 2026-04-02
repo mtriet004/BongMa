@@ -499,8 +499,16 @@ export function update(ctx, canvas, changeStateFn) {
       }
     }
 
-    if (!inSafeZone && state.frameCount % 20 === 0) {
-      playerTakeDamage(ctx, canvas, changeStateFn, state.globalHazard.damage || 0.5);
+    if (!inSafeZone) {
+      if (state.frameCount % 20 === 0) {
+        playerTakeDamage(ctx, canvas, changeStateFn, state.globalHazard.damage || 0.5);
+      }
+
+      // NÂNG CẤP: Khi người chơi đứng ngoài vòng an toàn của Boss Băng
+      if (state.globalHazard.type === "ice") {
+        state.playerStatus.slowTimer = 5; // Làm chậm di chuyển liên tục
+        player.cooldown += 0.5;           // Súng bị đóng băng, tốc độ bắn giảm cực mạnh
+      }
     }
 
     if (state.globalHazard.timer <= 0) state.globalHazard.active = false;

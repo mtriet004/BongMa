@@ -226,7 +226,8 @@ export const SPECIAL_SKILLS = {
         delay: i * 4,
         action: () => {
           const rx = Math.random() * 800;
-          fireAngle(rx, -20, Math.PI / 2, 2);
+          // SỬA LỖI: Đổi y từ -20 thành 15 để đạn không bị dội ngược ra ngoài bản đồ
+          fireAngle(rx, 15, Math.PI / 2, 2);
         }
       });
     }
@@ -235,6 +236,14 @@ export const SPECIAL_SKILLS = {
     boss.ultimatePhase = true;
     state.globalHazard = { type: "ice", active: true, timer: 600, damage: 0.8 };
     spawnSafeZone(boss.x, boss.y, 250, 600, { vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4 });
+
+    // NÂNG CẤP: Liên tục triệu hồi các bãi băng ngẫu nhiên trên mặt đất trong suốt 10 giây
+    for (let i = 0; i < 20; i++) {
+      state.delayedTasks.push({
+        delay: i * 30, // Cứ 0.5s xuất hiện 1 bãi băng
+        action: () => spawnHazard("frost", Math.random() * 800, Math.random() * 600, 60 + Math.random() * 40, 180)
+      });
+    }
   },
 
   // --- WIND ---
