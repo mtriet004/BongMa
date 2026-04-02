@@ -210,7 +210,7 @@ export const SPECIAL_SKILLS = {
     state.screenShake.intensity = 5;
     state.screenShake.type = 'earth';
     state.globalHazard = { type: "earth", active: true, timer: 600, damage: 1.2 };
-    pawnSafeZone(400, 300, 250, 600, { shrinking: false });
+    spawnSafeZone(400, 300, 250, 600, { shrinking: false });
   },
 
   // --- ICE ---
