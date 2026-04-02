@@ -277,13 +277,72 @@ export const SPECIAL_SKILLS = {
 
   // --- THUNDER ---
   "Tesla Field": (boss) => {
-    activateShield(boss, 120);
-    spawnBeam(boss.x, boss.y, state.player.x, state.player.y, 60, 40);
+    activateShield(boss, 150); // Tăng chút khiên vì chiêu này cast lâu
+
+    // Khóa mục tiêu vị trí hiện tại của người chơi
+    const px = state.player.x;
+    const py = state.player.y;
+
+    // 1. Tạo ra 6 bãi mìn điện bao vây người chơi (Tạo lồng điện)
+    const nodeCount = 6;
+    for (let i = 0; i < nodeCount; i++) {
+      const angle = (i / nodeCount) * Math.PI * 2;
+      const hx = px + Math.cos(angle) * 130; // Bán kính lồng điện là 130
+      const hy = py + Math.sin(angle) * 130;
+
+      // Hiện cảnh báo trước
+      spawnWarning(hx, hy, 45, 60, "laser");
+
+      state.delayedTasks.push({
+        delay: 60,
+        action: () => {
+          // Bẫy điện tồn tại khá lâu (300 frame = 5s)
+          spawnHazard("static", hx, hy, 45, 300, 0.5, "boss");
+        }
+      });
+    }
+
+    // 2. Bắn một tia laser hủy diệt thẳng vào giữa lồng điện để ép góc
+    state.delayedTasks.push({
+      delay: 75, // Trễ hơn mìn điện một chút
+      action: () => {
+        spawnBeam(boss.x, boss.y, px, py, 45, 40);
+        state.screenShake.timer = 15;
+        state.screenShake.intensity = 8;
+        state.screenShake.type = 'thunder';
+      }
+    });
   },
+
   "Chain Lightning": (boss) => {
-    activateShield(boss, 100);
-    const b = aim(boss);
-    for (let i = 0; i < 3; i++) spawnBeam(boss.x, boss.y, boss.x + Math.cos(b + (i - 1) * 0.4) * 1000, boss.y + Math.sin(b + (i - 1) * 0.4) * 1000, 45, 30);
+    activateShield(boss, 120);
+    const totalStrikes = 5; // Số lần giật sét liên tục
+
+    for (let i = 0; i < totalStrikes; i++) {
+      state.delayedTasks.push({
+        delay: i * 25, // Mỗi 25 frame giật 1 phát (rất nhanh)
+        action: () => {
+          // Đuổi theo vị trí người chơi hiện tại + một chút ngẫu nhiên để không quá khó né
+          const px = state.player.x + (Math.random() - 0.5) * 60;
+          const py = state.player.y + (Math.random() - 0.5) * 60;
+
+          // Tia sét giật xuống đất (từ boss đến điểm mục tiêu, charge cực nhanh)
+          spawnBeam(boss.x, boss.y, px, py, 15, 10);
+
+          // Ngay khi tia sét vừa dứt, nổ tung ra các viên đạn điện (Style 3)
+          state.delayedTasks.push({
+            delay: 15 + 10,
+            action: () => {
+              // ring(x, y, số lượng đạn, góc lệch, style, source, damage)
+              ring(px, py, 6, Math.random() * Math.PI, 3, "boss", 0.5);
+              state.screenShake.timer = 5;
+              state.screenShake.intensity = 4;
+              state.screenShake.type = 'thunder';
+            }
+          });
+        }
+      });
+    }
   },
   "HEAVEN'S WRATH": (boss) => {
     boss.ultimatePhase = true;
