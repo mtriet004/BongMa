@@ -395,84 +395,134 @@ export const SPECIAL_SKILLS = {
   },
 
   // --- OMNI EXCLUSIVE SKILLS (ĐA NGUYÊN TỐ) ---
-  "Omni_FireWind": (boss) => {
+  "Omni_FlameCleave": (boss) => {
     activateShield(boss, 150);
-    // Bão Lửa: Vừa hút người chơi, vừa xả thiên thạch
-    spawnHazard("vortex", 400, 300, 300, 240); // Hút ở giữa map
-    for (let i = 0; i < 6; i++) {
-      state.delayedTasks.push({
-        delay: i * 20,
-        action: () => {
-          let tx = state.player.x + (Math.random() - 0.5) * 200;
-          let ty = state.player.y + (Math.random() - 0.5) * 200;
-          spawnWarning(tx, ty, 60, 60, "laser");
-          state.delayedTasks.push({
-            delay: 60,
-            action: () => spawnMeteor(tx, -100, tx, ty)
-          });
-        }
-      });
-    }
-  },
+    if (!state.bossSlashes) state.bossSlashes = [];
 
-  "Omni_IceEarth": (boss) => {
-    activateShield(boss, 180);
-    // Kỷ Băng Thạch: Trồi đá gai liên tục kèm vùng băng làm chậm
-    state.globalHazard = { type: "ice", active: true, timer: 300, damage: 0.5 };
-    spawnSafeZone(boss.x, boss.y, 250, 300);
-    for (let i = 0; i < 10; i++) {
-      state.delayedTasks.push({
-        delay: i * 25,
-        action: () => {
-          let px = state.player.x;
-          let py = state.player.y;
-          spawnWarning(px, py, 45, 40, "spike");
-          state.delayedTasks.push({
-            delay: 40,
-            action: () => spawnHazard("rock", px, py, 45, 180)
-          });
-          // Xả đạn băng bồi thêm
-          ring(px, py, 6, 0, 2);
-        }
-      });
-    }
-  },
+    const targetAngle = aim(boss);
 
-  "Omni_PlasmaLaser": (boss) => {
-    activateShield(boss, 200);
-    // Lưới Điện Tương (Lửa + Sấm): Quét Laser ngang dọc khắp màn hình
-    for (let i = 0; i < 6; i++) {
-      state.delayedTasks.push({
-        delay: i * 20,
-        action: () => {
-          let px = state.player.x + (Math.random() - 0.5) * 150;
-          let py = state.player.y + (Math.random() - 0.5) * 150;
-          // Tạo Laser hình chữ thập bám theo người chơi
-          spawnBeam(px, 0, px, 600, 30, 20); // Dọc
-          spawnBeam(0, py, 800, py, 30, 20); // Ngang
-          state.screenShake.timer = 8;
-          state.screenShake.intensity = 6;
-          state.screenShake.type = 'thunder';
-        }
-      });
-    }
-    // Chốt hạ bằng vòng đạn lửa tỏa ra từ boss
+    // Gồng chiêu hiện cảnh báo hình quạt đỏ (Giả lập bằng bóng mờ)
     state.delayedTasks.push({
-      delay: 100,
-      action: () => ring(boss.x, boss.y, 30, 0, 1) // Style 1 (Lửa)
+      delay: 30,
+      action: () => {
+        // Tung nhát chém ngang 180 độ
+        state.bossSlashes.push({
+          x: boss.x, y: boss.y,
+          angle: targetAngle,
+          radius: 300,        // Tầm chém cực rộng
+          arc: Math.PI,       // Quét 180 độ
+          life: 20,
+          damageFrame: 15,    // Frame gây sát thương
+          damage: 2,
+          element: "fire"
+        });
+        state.screenShake.timer = 10;
+        state.screenShake.intensity = 8;
+        state.screenShake.type = 'earth';
+
+        // Kiếm khí văng ra
+        fan(boss.x, boss.y, targetAngle, 5, 0.3, 1, "boss", 1);
+      }
     });
   },
 
-  "Omni_ElementalStorm": (boss) => {
+  "Omni_GlacialThrust": (boss) => {
+    activateShield(boss, 150);
+    // Băng Kiếm: Chém dọc tạo ra tia laser xuyên thấu và để lại bãi băng
+    const targetAngle = aim(boss);
+
+    state.delayedTasks.push({
+      delay: 40,
+      action: () => {
+        let tx = boss.x + Math.cos(targetAngle) * 800;
+        let ty = boss.y + Math.sin(targetAngle) * 800;
+
+        spawnBeam(boss.x, boss.y, tx, ty, 10, 20); // Laser chém
+
+        // Dọc theo đường chém trồi lên các bãi băng
+        for (let i = 1; i <= 5; i++) {
+          let bx = boss.x + Math.cos(targetAngle) * (i * 120);
+          let by = boss.y + Math.sin(targetAngle) * (i * 120);
+          spawnHazard("frost", bx, by, 60, 240);
+        }
+      }
+    });
+  },
+
+  "Omni_ThunderCross": (boss) => {
+    activateShield(boss, 180);
+    if (!state.bossSlashes) state.bossSlashes = [];
+
+    // Dịch chuyển ngẫu nhiên rồi chém chữ X bằng Lôi Kiếm
+    state.delayedTasks.push({
+      delay: 20,
+      action: () => {
+        boss.x = state.player.x + (Math.random() > 0.5 ? 150 : -150);
+        boss.y = state.player.y + (Math.random() > 0.5 ? 150 : -150);
+
+        const angle = aim(boss);
+
+        // Chém chéo 1
+        state.bossSlashes.push({ x: boss.x, y: boss.y, angle: angle - 0.5, radius: 250, arc: Math.PI / 2, life: 15, damageFrame: 10, damage: 1, element: "thunder" });
+        // Chém chéo 2
+        state.bossSlashes.push({ x: boss.x, y: boss.y, angle: angle + 0.5, radius: 250, arc: Math.PI / 2, life: 15, damageFrame: 10, damage: 1, element: "thunder" });
+
+        state.screenShake.timer = 15;
+        state.screenShake.intensity = 12;
+        state.screenShake.type = 'thunder';
+      }
+    });
+  },
+
+  "Omni_WindDance": (boss) => {
     activateShield(boss, 200);
-    // Siêu bão hỗn mang (Gió + Sấm + Băng)
-    state.globalHazard = { type: "electric", active: true, timer: 300, damage: 1.0 };
-    spawnHazard("vortex", 200, 300, 250, 300); // Lốc xoáy 1
-    spawnHazard("vortex", 600, 300, 250, 300); // Lốc xoáy 2
-    for (let i = 0; i < 8; i++) {
+    // Vũ điệu Phong Kiếm: Xoay vòng liên tục xả kiếm khí
+    state.globalHazard = { type: "wind", active: true, timer: 240, damage: 0.5 };
+
+    for (let i = 0; i < 15; i++) {
       state.delayedTasks.push({
-        delay: i * 30,
-        action: () => ring(boss.x, boss.y, 16, i * 0.1, 2) // Xả đạn băng cuộn sóng
+        delay: i * 15,
+        action: () => {
+          // Bắn đạn gió tỏa tròn xoáy ốc
+          ring(boss.x, boss.y, 8, i * 0.4, 4, "boss", 1);
+        }
+      });
+    }
+  },
+
+  "OMNI_BLADE_OF_CREATION": (boss) => {
+    boss.ultimatePhase = true;
+    state.screenShake.timer = 60;
+    state.screenShake.intensity = 15;
+    state.globalHazard = { type: "electric", active: true, timer: 9999, damage: 1.0 };
+    if (!state.bossSlashes) state.bossSlashes = [];
+
+    // Giai đoạn hủy diệt: Boss đứng giữa bản đồ, gọi tứ kiếm chém sập màn hình
+    boss.x = 400;
+    boss.y = 300;
+
+    for (let i = 0; i < 5; i++) {
+      state.delayedTasks.push({
+        delay: i * 60, // Mỗi giây chém 1 phát toàn màn hình
+        action: () => {
+          let angle = Math.random() * Math.PI * 2;
+          // Nhát chém mỏng nhưng tầm cực xa
+          state.bossSlashes.push({
+            x: boss.x, y: boss.y,
+            angle: angle,
+            radius: 800,
+            arc: Math.PI / 4,   // Góc chém hẹp nhưng xa
+            life: 25,
+            damageFrame: 20,
+            damage: 3,
+            element: "omni"
+          });
+
+          // Nổ pháo hoa nguyên tố theo hướng chém
+          fan(boss.x, boss.y, angle, 9, 0.2, Math.floor(Math.random() * 4) + 1, "boss", 1);
+          state.screenShake.timer = 10;
+          state.screenShake.intensity = 10;
+        }
       });
     }
   },
@@ -531,14 +581,14 @@ export const BOSS_TYPES = {
   },
   "omni": {
     name: "Chúa Tể Nguyên Tố",
-    hp: 200, maxHp: 200, speed: 2.5, color: "#ffffff", originalColor: "#ffffff", elementColor: "#ff00ff", icon: "👑",
+    hp: 500, maxHp: 500, speed: 2.5, color: "#ffffff", originalColor: "#ffffff", elementColor: "#ff00ff", icon: "👑",
     phaseCount: 5,
     phases: [
-      { attackModes: [1, 21, 30], special: "Omni_FireWind", speedMult: 1.0 },       // Phase 1: Bão Lửa
-      { attackModes: [6, 16, 31], special: "Omni_IceEarth", speedMult: 1.2 },       // Phase 2: Kỷ Băng Thạch
-      { attackModes: [11, 30, 32], special: "Omni_PlasmaLaser", speedMult: 1.4 },   // Phase 3: Lưới Laser Điện Tương
-      { attackModes: [8, 13, 23], special: "Omni_ElementalStorm", speedMult: 1.6 }, // Phase 4: Bão Nguyên Tố
-      { attackModes: [30, 31, 32], ultimate: "ABSOLUTE DOMINATION", speedMult: 2.0 } // Phase 5: Hủy Diệt
+      { attackModes: [1, 21], special: "Omni_FlameCleave", speedMult: 1.0 },       // Phase 1: Hỏa Kiếm
+      { attackModes: [6, 16], special: "Omni_GlacialThrust", speedMult: 1.2 },     // Phase 2: Băng Kiếm
+      { attackModes: [11, 20], special: "Omni_ThunderCross", speedMult: 1.4 },     // Phase 3: Lôi Kiếm
+      { attackModes: [8, 13, 23], special: "Omni_WindDance", speedMult: 1.6 },     // Phase 4: Phong Kiếm
+      { attackModes: [30, 31, 32], ultimate: "OMNI_BLADE_OF_CREATION", speedMult: 2.0 } // Phase 5: Kiếm Sáng Thế
     ]
   }
 };

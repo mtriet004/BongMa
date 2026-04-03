@@ -206,6 +206,42 @@ export function update(ctx, canvas, changeStateFn) {
 
   // --- Elemental interactions & Hazards ---
   state.hazards.forEach((h) => {
+    // ===== BOSS SWORD SLASH MANAGEMENT =====
+    if (state.bossSlashes) {
+      state.bossSlashes = state.bossSlashes.filter((slash) => {
+        slash.life--;
+
+        // Xử lý sát thương khi người chơi nằm trong tầm chém
+        if (slash.life === slash.damageFrame) {
+          let dx = player.x - slash.x;
+          let dy = player.y - slash.y;
+          let distToPlayer = Math.sqrt(dx * dx + dy * dy);
+          let angleToPlayer = Math.atan2(dy, dx);
+
+          // Tính góc lệch giữa nhát chém và người chơi
+          let angleDiff = Math.abs(angleToPlayer - slash.angle);
+          if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+          // Nếu người chơi nằm trong bán kính và góc quét của thanh kiếm
+          if (distToPlayer <= slash.radius && angleDiff <= slash.arc / 2) {
+            let isInvincible = player.dashTimeLeft > 0 || player.gracePeriod > 0 ||
+              (buffs.e > 0 && ["tank", "knight", "reaper"].includes(player.characterId)) ||
+              (buffs.q > 0 && ["warden", "ghost", "assassin", "spirit", "frost"].includes(player.characterId));
+
+            if (!isInvincible) {
+              import("./combat.js").then(m => m.playerTakeDamage(ctx, canvas, changeStateFn, slash.damage));
+
+              // Debuff theo nguyên tố của kiếm
+              if (slash.element === "fire") state.playerStatus.burnTimer = 60;
+              if (slash.element === "ice") state.playerStatus.slowTimer = 60;
+              if (slash.element === "thunder") state.playerStatus.stunTimer = 15;
+            }
+          }
+        }
+        return slash.life > 0;
+      });
+    }
+
     // Terrain Collision (Earth Spikes/Barriers)
     if (h.type === "rock" && h.active) {
       const dxh = player.x - h.x;
