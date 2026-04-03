@@ -704,9 +704,7 @@ function triggerSkill(key, canvas, changeStateFn) {
 
       state.ghosts.forEach((g) => {
         if (dist(state.player.x, state.player.y, g.x, g.y) < radius) {
-          if (g.hp === undefined) g.hp = 1; // Base HP
-          g.hp -= dmg;
-          g.isStunned = Math.max(g.isStunned, 30);
+          g.isStunned = Math.max(g.isStunned, 60);
         }
       });
       if (
