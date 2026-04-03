@@ -10,8 +10,7 @@ import {
 import { syncRemoteState, persistState } from "../auth.js";
 import { initSkills } from "./skills.js";
 import { playBGM, stopAllBGM, playSound } from "./audio.js";
-import { createBoss, bossSummonGhosts } from "../entities.js";
-
+import { createBoss, bossSummonGhosts, BOSS_TYPES } from "../entities.js";
 export function initGame(isNextLevel = false) {
   let saved = JSON.parse(localStorage.getItem(GHOST_DATA_KEY) || "{}");
 
