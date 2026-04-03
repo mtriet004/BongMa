@@ -85,7 +85,7 @@ export function initGame(isNextLevel = false) {
   state.player.dashTimeLeft = 0;
 
   state.bullets = [];
-  
+
   // Xoá các kĩ năng, projectile cũ để ko bị lưu qua màn mới
   resetSkillsState();
 
@@ -301,10 +301,10 @@ function tryBossFragmentDrop() {
   state.bossFragments.push(fragment.id);
   state.lastDroppedFragment = fragment;
   playSound("fragment");
-  
+
   // Also show a toast if possible
   if (typeof UI !== 'undefined' && UI.showFragmentToast) {
-      UI.showFragmentToast(fragment);
+    UI.showFragmentToast(fragment);
   }
 
   saveGame(state, GHOST_DATA_KEY);
@@ -415,19 +415,19 @@ export function handleBossArenaReward(gameLoopFn) {
   // Cập nhật UI Thưởng
   document.getElementById("arena-coins-reward").innerText = `💰 +${reward.coins} Tiền`;
   document.getElementById("arena-rare-reward").innerText = gotTicket ? `🎫 +5 Nguyên liệu (Common)` : "";
-  
+
   // Show Fragment Info in Arena Victory Screen
   const fragInfo = document.getElementById("arena-fragment-reward") || { innerText: "" };
   if (state.lastDroppedFragment) {
-      fragInfo.innerText = `✨ NHẬN ĐƯỢC: ${state.lastDroppedFragment.icon} ${state.lastDroppedFragment.name}`;
-      fragInfo.style.color = "#00ffff";
+    fragInfo.innerText = `✨ NHẬN ĐƯỢC: ${state.lastDroppedFragment.icon} ${state.lastDroppedFragment.name}`;
+    fragInfo.style.color = "#00ffff";
   } else {
-      fragInfo.innerText = "";
+    fragInfo.innerText = "";
   }
 
   document.getElementById("screen-arena-victory").classList.remove("hidden");
   state.gameState = "MENU"; // Freeze loop for reward screen
-  
+
   // Nút quay lại menu
   document.getElementById("btn-arena-victory-back").onclick = () => {
     document.getElementById("screen-arena-victory").classList.add("hidden");
@@ -448,6 +448,8 @@ export function handleBossArenaReward(gameLoopFn) {
 export function resetSkillsState() {
   state.activeBuffs = { q: 0, e: 0, r: 0 };
   state.delayedTasks = []; // Xoá bỏ sạch các setTimeout cũ đã chuyển đổi
+
+  state.particles = [];
 
   state.phoenixTrails = [];
   state.phoenixEfx = null;
@@ -481,7 +483,7 @@ export function resetSkillsState() {
   state.playerStatus.stunTimer = 0;
   state.playerStatus.slowTimer = 0;
   state.playerStatus.burnTimer = 0;
-  
+
   // Clear boss cinamatics & hazards
   state.hazards = [];
   state.bossBeams = [];

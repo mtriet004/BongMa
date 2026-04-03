@@ -552,8 +552,11 @@ export function update(ctx, canvas, changeStateFn) {
           player.y += (dy / len) * 3;
         }
       } else if (state.globalHazard.type === "electric") {
-        // Sinh hạt điện li ti quanh người chơi
+        // Thunder storm particles
         if (state.frameCount % 5 === 0) {
+          // THÊM DÒNG BẢO VỆ NÀY
+          if (!state.particles) state.particles = [];
+
           state.particles.push({
             x: player.x + (Math.random() - 0.5) * 100,
             y: player.y + (Math.random() - 0.5) * 100,
@@ -561,7 +564,7 @@ export function update(ctx, canvas, changeStateFn) {
             vy: (Math.random() - 0.5) * 2,
             life: 20,
             color: "#00ffff",
-            size: 1 + Math.random() * 2,
+            size: 1 + Math.random() * 2
           });
         }
       }
@@ -1539,7 +1542,7 @@ export function update(ctx, canvas, changeStateFn) {
     if (
       boss &&
       dist(player.x, player.y, boss.x, boss.y) <
-        boss.radius + player.radius + 20
+      boss.radius + player.radius + 20
     ) {
       boss.hp -= 3;
     }

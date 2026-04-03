@@ -108,6 +108,8 @@ export function draw(ctx, canvas) {
   let buffs = activeBuffs || { q: 0, e: 0, r: 0 };
   const char = player?.characterId;
 
+  if (!state.particles) state.particles = [];
+
   // --- Background & Global Hazards ---
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (state.globalHazard && state.globalHazard.active && state.globalHazard.type === "fire") {
@@ -118,7 +120,10 @@ export function draw(ctx, canvas) {
 
   const shake = getShakeOffset();
   ctx.save();
-  ctx.translate(shake.x, shake.y);
+  // SAFEGUARD: Đảm bảo không bị NaN khi rung màn hình (nguyên nhân gây lệch màn hình vĩnh viễn)
+  if (!isNaN(shake.x) && !isNaN(shake.y)) {
+    ctx.translate(shake.x, shake.y);
+  }
 
   if (state.globalHazard && state.globalHazard.active && state.globalHazard.type === "fire") {
     drawBurnVignette(ctx, canvas);
@@ -224,6 +229,7 @@ export function draw(ctx, canvas) {
       }
       ctx.restore();
     }
+    ctx.restore();
   });
 
   // --- Draw Global Hazard Overlay ---
@@ -1533,16 +1539,23 @@ export function draw(ctx, canvas) {
     state.groundWarnings.forEach(w => {
 
       const progress = Math.max(0, 1 - (w.timer / (w.maxTimer || 60)));
+
+      // SAFEGUARD: Bỏ qua nếu tọa độ bị NaN để tránh treo renderer và làm lệch màn hình
+      if (isNaN(w.x) || isNaN(w.y)) {
+        return;
+      }
+
       ctx.save();
 
       if (w.type === "meteor") {
-        // 1. Bóng đen to dần trên mặt đất
+        // ==========================================
+        // 1. HIỆU ỨNG BOSS LỬA: CẢNH BÁO THIÊN THẠCH
+        // ==========================================
         ctx.fillStyle = `rgba(15, 0, 0, ${progress * 0.6})`;
         ctx.beginPath();
         ctx.arc(w.x, w.y, w.radius * progress, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Vòng xoay khóa mục tiêu (Target)
         ctx.strokeStyle = `rgba(255, 50, 0, ${0.5 + progress * 0.5})`;
         ctx.lineWidth = 3;
         ctx.setLineDash([15, 15]);
@@ -1552,7 +1565,6 @@ export function draw(ctx, canvas) {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // 3. Tâm chữ thập
         ctx.strokeStyle = `rgba(255, 0, 0, ${0.8})`;
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1561,20 +1573,20 @@ export function draw(ctx, canvas) {
         ctx.stroke();
 
       } else if (w.type === "geyser") {
-        // Sủi bọt dung nham
+        // ==========================================
+        // 2. HIỆU ỨNG BOSS LỬA: CỘT LỬA PHUN TRÀO (Sủi bọt)
+        // ==========================================
         ctx.beginPath();
         ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 60, 0, ${0.1 + progress * 0.3})`;
         ctx.fill();
 
-        // Vòng viền rung giật
         ctx.strokeStyle = `rgba(255, 100, 0, 0.8)`;
         ctx.lineWidth = 4 + Math.sin(state.frameCount * 0.5) * 3;
         ctx.beginPath();
         ctx.arc(w.x, w.y, w.radius * (0.4 + progress * 0.6), 0, Math.PI * 2);
         ctx.stroke();
 
-        // Hạt bọt khí bay lên
         if (progress > 0.5 && state.frameCount % 3 === 0) {
           state.particles.push({
             x: w.x + (Math.random() - 0.5) * w.radius,
@@ -1583,15 +1595,11 @@ export function draw(ctx, canvas) {
             life: 20, color: "#ffaa00", size: 2 + Math.random() * 3
           });
         }
-      }
-
-      if (w.type === "spike") {
+      } else if (w.type === "spike") {
         // ==========================================
-        // HIỆU ỨNG BOSS ĐẤT: MẶT ĐẤT RUNG CHUYỂN & NỨT
+        // 3. HIỆU ỨNG BOSS ĐẤT: GAI ĐÁ TRỒI LÊN
         // ==========================================
         const alpha = 0.2 + progress * 0.6;
-
-        // Vòng tròn rung động
         ctx.beginPath();
         ctx.arc(w.x + (Math.random() - 0.5) * 3, w.y + (Math.random() - 0.5) * 3, w.radius, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(100, 50, 20, ${alpha * 0.3})`;
@@ -1601,7 +1609,6 @@ export function draw(ctx, canvas) {
         ctx.setLineDash([8, 8]);
         ctx.stroke();
 
-        // Vẽ các vết nứt (Cracks)
         ctx.setLineDash([]);
         ctx.strokeStyle = `rgba(50, 20, 0, ${alpha})`;
         ctx.lineWidth = 2;
@@ -1613,7 +1620,6 @@ export function draw(ctx, canvas) {
           ctx.stroke();
         }
 
-        // Bụi bay lên khi sắp trồi đá
         if (progress > 0.7 && state.frameCount % 2 === 0) {
           state.particles.push({
             x: w.x + (Math.random() - 0.5) * w.radius,
@@ -1622,10 +1628,9 @@ export function draw(ctx, canvas) {
             life: 20, color: "#8b4513", size: 2 + Math.random() * 3
           });
         }
-
       } else {
         // ==========================================
-        // HIỆU ỨNG BOSS LỬA: CỘT LASER TỪ TRÊN TRỜI
+        // 4. HIỆU ỨNG BOSS LỬA: CỘT LASER (Mặc định)
         // ==========================================
         ctx.fillStyle = `rgba(255, 0, 0, ${0.05 + progress * 0.15})`;
         ctx.fillRect(w.x - w.radius, 0, w.radius * 2, w.y);
@@ -1644,11 +1649,8 @@ export function draw(ctx, canvas) {
         ctx.lineDashOffset = -state.frameCount * 30;
         ctx.strokeStyle = "rgba(255, 200, 0, 0.9)";
         ctx.lineWidth = 6;
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "red";
         ctx.stroke();
 
-        // SỬA LỖI CRASH Ở ĐÂY: Dùng Math.max để đảm bảo bán kính (bloomSize) không bao giờ bị âm
         const bloomSize = Math.max(0.1, 40 + progress * 100);
         const grad = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, bloomSize);
         grad.addColorStop(0, `rgba(255, 255, 255, ${0.5 * progress})`);
@@ -1659,13 +1661,11 @@ export function draw(ctx, canvas) {
         ctx.arc(w.x, w.y, bloomSize, 0, Math.PI * 2);
         ctx.fill();
 
+        ctx.setLineDash([]);
         ctx.beginPath();
         ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 0, 0, ${0.1 + progress * 0.4})`;
-        ctx.fill();
         ctx.strokeStyle = `rgba(255, 50, 0, ${0.5 + progress * 0.5})`;
         ctx.lineWidth = 4;
-        ctx.setLineDash([]);
         ctx.stroke();
       }
       ctx.restore();
