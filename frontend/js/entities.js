@@ -466,7 +466,7 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
   const speed = isPlayer ? 10 : 4.5;
   state.bullets.push({
     x: sx, y: sy, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-    isPlayer, radius: isPlayer ? 4 : 8, life: 240, style, damage
+    isPlayer, radius: isPlayer ? 4 : 8, life: 240, style, damage, element: isPlayer ? state.element : null,
   });
 }
 
