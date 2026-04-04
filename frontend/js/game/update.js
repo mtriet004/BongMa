@@ -1599,55 +1599,63 @@ export function update(ctx, canvas, changeStateFn) {
   // DỌN DẸP QUÁI CHẾT SẠCH SẼ & THÊM HIỆU ỨNG NỔ TUNG
   for (let i = state.ghosts.length - 1; i >= 0; i--) {
     let g = state.ghosts[i];
-    if (g.hp !== undefined && g.hp <= 0 && !g.isRespawning) {
+
+    // 1. Kiểm tra điều kiện quái bị trúng đòn (Hết HP hoặc bị Choáng)
+    let isHit = (g.hp !== undefined && g.hp <= 0) || (!g.isSubBoss && g.isStunned > 0);
+
+    if (isHit && !g.isRespawning) {
+      // Hiệu ứng nổ tại vị trí vừa chết
       if (g.x > 0) {
         state.player.coins = (state.player.coins || 0) + 2;
         if (!state.explosions) state.explosions = [];
         state.explosions.push({
-          x: g.x,
-          y: g.y,
-          radius: 15,
-          life: 10,
-          color: "rgba(255, 68, 68, 0.6)",
-        }); // Nổ khi chết!
+          x: g.x, y: g.y, radius: 15, life: 10, color: "rgba(255, 68, 68, 0.6)",
+        });
       }
+
       g.isRespawning = true;
-      g.respawnTimer = 5 * FPS; // Tăng lên 5 giây cho rõ ràng
-      g.x = -100;
+      g.respawnTimer = 3 * FPS; // Thời gian chờ là 3 giây
+      g.isStunned = 0;
+      g.x = -100; // Cho quái biến mất khỏi màn hình
       g.y = -100;
+      g.historyPath = []; // Xóa vệt di chuyển cũ
     }
 
+    // 2. Logic cập nhật khi quái đang trong trạng thái "chờ hồi sinh"
     if (g.isRespawning) {
       g.respawnTimer--;
+
+      // QUAN TRỌNG: Vẫn tăng timer để quái "di chuyển ngầm" trên quỹ đạo
       g.timer++;
 
-      // Cho ma xuất hiện lại ở vị trí bản ghi trước khi thực sự hồi sinh để "cảnh báo"
-      if (g.respawnTimer < 1 * FPS) {
-        // 1 giây cuối
-        let exactIndex = g.timer * g.speedRate;
-        let idx = Math.floor(exactIndex);
+      // Khi còn 0.5 giây cuối, hiển thị nhấp nháy tại vị trí 3s sau để báo hiệu
+      if (g.respawnTimer < 0.5 * FPS) {
+        let idx = Math.floor(g.timer * g.speedRate);
         if (idx < g.record.length) {
           g.x = g.record[idx][0];
           g.y = g.record[idx][1];
-          g.flicker = true; // Flag để vẽ nhấp nháy
+          g.flicker = true; // Vẽ nhấp nháy trong draw.js
         }
       }
 
       if (g.respawnTimer <= 0) {
         g.isRespawning = false;
-        g.hp = undefined;
+        g.hp = undefined; // Reset máu cho lần sống tiếp theo
         g.flicker = false;
       }
-      continue;
+      continue; // Bỏ qua phần cập nhật vị trí bình thường phía dưới
     }
 
+    // 3. Cập nhật vị trí bình thường cho quái đang sống
+    g.timer++;
     let exactIndex = g.timer * g.speedRate;
-    if (
-      exactIndex >= g.record.length &&
-      (!g.historyPath || g.historyPath.length === 0)
-    ) {
-      state.ghosts.splice(i, 1);
-      continue;
+    let idx = Math.floor(exactIndex);
+
+    if (idx < g.record.length) {
+      g.x = g.record[idx][0];
+      g.y = g.record[idx][1];
+    } else if (!g.historyPath || g.historyPath.length === 0) {
+      state.ghosts.splice(i, 1); // Xóa quái khi đi hết quỹ đạo
     }
   }
 
