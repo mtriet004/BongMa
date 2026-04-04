@@ -395,28 +395,43 @@ export const SPECIAL_SKILLS = {
   },
   // --- OMNI EXCLUSIVE SKILLS (SIÊU CẤP ĐIỆN ẢNH - WOW FACTOR) ---
 
-  // Phase 1: Hộp Giam Tử Hình (Spatial Matrix)
-  // Cơ chế: Vẽ 4 tia Laser khổng lồ tạo thành một chiếc hộp nhốt người chơi lại. 
-  // Ngay sau đó, một lốc xoáy xuất hiện ở giữa hộp hút bạn vào tâm để nổ đạn Lửa!
+  // Phase 1: Hộp Giam Tử Hình (Spatial Matrix) -> Nâng cấp thành Ngục Tù Tứ Tượng
   "Omni_SpatialMatrix": (boss) => {
-    activateShield(boss, 120);
-    let px = state.player.x; let py = state.player.y;
-    let s = 110; // Kích thước hộp giam
+    activateShield(boss, 150); // Tăng khiên vì chiêu này giờ rất rát
+    let px = state.player.x;
+    let py = state.player.y;
+    let s = 130; // Nới rộng hộp giam ra một chút để người chơi có hy vọng lách
 
-    // Ép khung bằng 4 tia Laser (Vẽ hình vuông quanh người chơi)
-    spawnBeam(px - s, py - s, px + s, py - s, 40, 30); // Cạnh trên
-    spawnBeam(px - s, py + s, px + s, py + s, 40, 30); // Cạnh dưới
-    spawnBeam(px - s, py - s, px - s, py + s, 40, 30); // Cạnh trái
-    spawnBeam(px + s, py - s, px + s, py + s, 40, 30); // Cạnh phải
+    // 1. SẤM: Ép khung bằng 4 tia Laser chớp nhoáng
+    spawnBeam(px - s, py - s, px + s, py - s, 30, 40); // Cạnh trên
+    spawnBeam(px - s, py + s, px + s, py + s, 30, 40); // Cạnh dưới
+    spawnBeam(px - s, py - s, px - s, py + s, 30, 40); // Cạnh trái
+    spawnBeam(px + s, py - s, px + s, py + s, 30, 40); // Cạnh phải
+
+    // 2. BĂNG & GIÓ: Vừa làm chậm vừa hút vào giữa
+    spawnHazard("frost", px, py, s, 90, 0, "boss");
+    spawnHazard("vortex", px, py, s * 1.5, 90, 0, "boss");
 
     state.delayedTasks.push({
-      delay: 45,
+      delay: 40, // Ngay khi Laser chớp lên vây khốn
       action: () => {
-        // Hút vào tâm hộp và nổ đạn lửa tỏa tròn
-        spawnHazard("vortex", px, py, 150, 60, 0, "boss");
-        ring(px, py, 12, 0, 1, "boss", 1.5);
-        state.screenShake.timer = 10;
-        state.screenShake.intensity = 8;
+        // 3. LỬA: Kích nổ cột lửa lấp kín gần hết cái hộp
+        spawnHazard("fire", px, py, s - 10, 60, 1.0, "boss");
+
+        // Rung giật màn hình cực mạnh
+        state.screenShake.timer = 15;
+        state.screenShake.intensity = 12;
+        state.screenShake.type = 'earth';
+
+        // 4. HỖN MANG: Bắn đạn tứ sắc khổng lồ văng ra 12 hướng
+        for (let j = 0; j < 12; j++) {
+          let angle = (j / 12) * Math.PI * 2;
+          state.bullets.push({
+            x: px, y: py,
+            vx: Math.cos(angle) * 7, vy: Math.sin(angle) * 7,
+            isPlayer: false, radius: 12, life: 150, style: (j % 4) + 1, damage: 1.5
+          });
+        }
       }
     });
   },
@@ -424,25 +439,56 @@ export const SPECIAL_SKILLS = {
   // Phase 2: Lưu Tinh Đa Sắc (Prismatic Meteors)
   // Cơ chế: Gọi 3 Thiên thạch nhắm thẳng vào đầu bạn. NHƯNG khi thiên thạch chạm đất, 
   // thay vì chỉ nổ lửa, nó sẽ VỠ VỤN ra thành 8 viên đạn đủ 4 màu bay tứ tung!
+  // Phase 2: Lưu Tinh Đa Sắc (Prismatic Meteors) - Bản Dàn Nhạc Nguyên Tố
   "Omni_PrismaticMeteors": (boss) => {
-    activateShield(boss, 120);
-    for (let i = 0; i < 3; i++) {
+    activateShield(boss, 150);
+
+    // Gió: Tạo lốc xoáy khổng lồ giữa bản đồ hút nhẹ người chơi, cản trở việc chạy trốn
+    spawnHazard("vortex", 400, 300, 800, 150, 0, "boss");
+
+    for (let i = 0; i < 4; i++) { // Tăng lên 4 quả thiên thạch
       state.delayedTasks.push({
-        delay: i * 35,
+        delay: i * 30,
         action: () => {
-          let tx = state.player.x; let ty = state.player.y;
-          spawnWarning(tx, ty, 60, 45, "meteor");
+          let tx = state.player.x;
+          let ty = state.player.y;
+
+          // Lửa: Đặt cảnh báo Thiên Thạch
+          spawnWarning(tx, ty, 70, 45, "meteor");
+
+          // Sấm: Trong lúc đợi thiên thạch rơi, giật sét ngẫu nhiên khóa góc né
+          for (let k = 0; k < 2; k++) {
+            let lx = tx + (Math.random() - 0.5) * 200;
+            let ly = ty + (Math.random() - 0.5) * 200;
+            spawnWarning(lx, ly, 45, 30, "laser");
+            state.delayedTasks.push({
+              delay: 30,
+              action: () => {
+                spawnBeam(boss.x, boss.y, lx, ly, 10, 10);
+                state.screenShake.timer = 5;
+                state.screenShake.intensity = 5;
+                state.screenShake.type = 'thunder';
+              }
+            });
+          }
+
+          // Thiên thạch chạm đất
           state.delayedTasks.push({
             delay: 45,
             action: () => {
               spawnMeteor(tx, -50, tx, ty);
-              // Căn đúng 18 frame (lúc thiên thạch vừa chạm đất) thì văng miểng đa sắc
+
+              // Băng: Sau khi rơi, để lại bãi băng và văng 8 viên đạn 4 màu
               state.delayedTasks.push({
-                delay: 18,
+                delay: 18, // Căn đúng lúc thiên thạch chạm mặt đất
                 action: () => {
+                  spawnHazard("frost", tx, ty, 80, 120, 0, "boss"); // Bãi băng làm chậm
+                  state.screenShake.timer = 8;
+                  state.screenShake.intensity = 8;
+                  state.screenShake.type = 'earth';
+
                   for (let j = 0; j < 8; j++) {
                     let angle = (j / 8) * Math.PI * 2;
-                    // Đạn 4 màu bắn ra từ điểm rơi
                     state.bullets.push({
                       x: tx, y: ty, vx: Math.cos(angle) * 5, vy: Math.sin(angle) * 5,
                       isPlayer: false, radius: 10, life: 150, style: (j % 4) + 1, damage: 1
@@ -526,29 +572,38 @@ export const SPECIAL_SKILLS = {
     });
   },
 
-  // Phase 4: Chong Chóng Tử Thần (Eternal Carousel)
-  // Cơ chế: Boss đứng giữa và tạo ra 2 tia Laser Xoay Tròn Quét Bản Đồ (như dây nhảy mmo). 
-  // Người chơi buộc phải chạy vòng quanh Boss để né tia laser, đồng thời tránh đạn nảy tung tóe.
+  // Phase 4: Chong Chóng Tử Thần (Eternal Carousel) - Bản Đồ Sát
   "Omni_EternalCarousel": (boss) => {
-    activateShield(boss, 150);
-    boss.x = 400; boss.y = 300;
+    activateShield(boss, 180); // Tăng khiên vì thời gian cast kéo dài
+    boss.x = 400; boss.y = 300; // Căn giữa bản đồ
 
-    // Liên tục quét Laser xoay tròn trong 2.5 giây (75 frame)
-    for (let i = 0; i < 75; i++) {
+    // Gió: Lốc xoáy nhẹ ở giữa hút người chơi về phía trung tâm (và các tia laser)
+    spawnHazard("vortex", boss.x, boss.y, 800, 150, 0, "boss");
+
+    // Xoay trong 120 frame (2 giây) quét hình chữ thập
+    for (let i = 0; i < 120; i++) {
       state.delayedTasks.push({
         delay: i,
         action: () => {
-          let angle = i * 0.08;
-          // Gọi tia chớp sáng chớp tắt nối tiếp nhau tạo cảm giác quay mượt mà
-          spawnBeam(boss.x, boss.y, boss.x + Math.cos(angle) * 800, boss.y + Math.sin(angle) * 800, 2, 5);
-          spawnBeam(boss.x, boss.y, boss.x + Math.cos(angle + Math.PI) * 800, boss.y + Math.sin(angle + Math.PI) * 800, 2, 5);
+          let angle = i * 0.05; // Xoay vừa phải để tạo áp lực liên tục
 
-          // Mỗi nhịp chẵn nhả thêm đạn đa màu NẢY TƯỜNG để làm rối loạn di chuyển
-          if (i % 8 === 0) {
+          // 4 tia laser tạo thành hình chữ thập xoay tròn bao trọn màn hình
+          spawnBeam(boss.x, boss.y, boss.x + Math.cos(angle) * 1000, boss.y + Math.sin(angle) * 1000, 2, 5);
+          spawnBeam(boss.x, boss.y, boss.x + Math.cos(angle + Math.PI / 2) * 1000, boss.y + Math.sin(angle + Math.PI / 2) * 1000, 2, 5);
+          spawnBeam(boss.x, boss.y, boss.x + Math.cos(angle + Math.PI) * 1000, boss.y + Math.sin(angle + Math.PI) * 1000, 2, 5);
+          spawnBeam(boss.x, boss.y, boss.x + Math.cos(angle + Math.PI * 1.5) * 1000, boss.y + Math.sin(angle + Math.PI * 1.5) * 1000, 2, 5);
+
+          // Băng: Mỗi nhịp thả vòng đạn băng (Style 2) xen kẽ để làm chậm người chơi
+          if (i % 15 === 0) {
+            ring(boss.x, boss.y, 8, -angle, 2, "boss", 1);
+          }
+
+          // Lửa: Lâu lâu bắn một đạn lửa nảy tường quấy rối
+          if (i % 20 === 0) {
             state.bullets.push({
               x: boss.x, y: boss.y,
-              vx: Math.cos(angle + Math.PI / 2) * 5, vy: Math.sin(angle + Math.PI / 2) * 5,
-              isPlayer: false, radius: 10, life: 300, style: (i % 4) + 1, damage: 1, bounces: 1
+              vx: Math.cos(angle + Math.PI / 4) * 4, vy: Math.sin(angle + Math.PI / 4) * 4,
+              isPlayer: false, radius: 10, life: 300, style: 1, damage: 1, bounces: 1
             });
           }
         }
