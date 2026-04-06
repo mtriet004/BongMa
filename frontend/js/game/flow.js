@@ -18,7 +18,7 @@ import {
 import { syncRemoteState, persistState } from "../auth.js";
 import { initSkills } from "./skills.js";
 import { playBGM, stopAllBGM, playSound } from "./audio.js";
-import { createBoss, bossSummonGhosts, BOSS_TYPES, spawnCrate } from "../entities.js";
+import { createBoss, bossSummonGhosts, BOSS_TYPES, spawnCrate, spawnCapturePoint } from "../entities.js";
 export function initGame(isNextLevel = false) {
   let saved = JSON.parse(localStorage.getItem(GHOST_DATA_KEY) || "{}");
 
@@ -104,17 +104,14 @@ export function initGame(isNextLevel = false) {
   state.boss = null;
   UI.bossUi.style.display = "none";
 
-  let targetSurviveSeconds = Math.min(60, 15 + (state.currentLevel - 1) * 5);
-  state.maxFramesToSurvive = state.isBossLevel
-    ? 999999
-    : targetSurviveSeconds * FPS;
+  state.maxFramesToSurvive = 999999;
 
   state.ghosts = [];
   let ghostLimit = Math.min(state.currentLevel, 10);
   let runsToUse = state.pastRuns.slice(-ghostLimit);
 
   if (!state.isBossLevel) {
-    runsToUse.push(generateDummy(state.maxFramesToSurvive));
+    runsToUse.push(generateDummy(60 * FPS));
   }
 
   let playbackRate =
@@ -161,43 +158,43 @@ export function initGame(isNextLevel = false) {
 
   // --- INITIALIZE SWARM ZONES ---
   const shouldRegenZones = state.swarmZones.length === 0 || state.swarmZones.every(sz => sz.isCompleted);
-  
+
   if (shouldRegenZones) {
     state.swarmZones = [];
     if (!state.isBossLevel) {
       // Mỗi đợt rải đúng 3 khu vực bầy đàn, đảm bảo không chồng lấn
       const numZones = 3;
       for (let i = 0; i < numZones; i++) {
-          let x, y, overlap;
-          let attempts = 0;
-          const radius = 500;
-          
-          do {
-              overlap = false;
-              x = 500 + Math.random() * (state.world.width - 1000);
-              y = 500 + Math.random() * (state.world.height - 1000);
-              
-              // Kiểm tra khoảng cách với các vùng đã có
-              for (const existing of state.swarmZones) {
-                  if (dist(x, y, existing.x, existing.y) < radius * 2) {
-                      overlap = true;
-                      break;
-                  }
-              }
-              attempts++;
-          } while (overlap && attempts < 50);
+        let x, y, overlap;
+        let attempts = 0;
+        const radius = 400;
 
-          state.swarmZones.push({
-              id: `swarm_${state.currentLevel}_${i}_${Date.now()}`,
-              x: x,
-              y: y,
-              radius: radius,
-              requiredKills: 15 + state.currentLevel * 5,
-              currentKills: 0,
-              isCompleted: false,
-              active: false,
-              spawnedLocalGhosts: false
-          });
+        do {
+          overlap = false;
+          x = 400 + Math.random() * (state.world.width - 1000);
+          y = 400 + Math.random() * (state.world.height - 1000);
+
+          // Kiểm tra khoảng cách với các vùng đã có
+          for (const existing of state.swarmZones) {
+            if (dist(x, y, existing.x, existing.y) < radius * 2) {
+              overlap = true;
+              break;
+            }
+          }
+          attempts++;
+        } while (overlap && attempts < 50);
+
+        state.swarmZones.push({
+          id: `swarm_${state.currentLevel}_${i}_${Date.now()}`,
+          x: x,
+          y: y,
+          radius: radius,
+          requiredKills: 15 + state.currentLevel * 5,
+          currentKills: 0,
+          isCompleted: false,
+          active: false,
+          spawnedLocalGhosts: false
+        });
       }
     }
   }
@@ -208,29 +205,18 @@ export function initGame(isNextLevel = false) {
     for (let i = 0; i < 10; i++) {
       spawnCrate();
     }
+    // Sinh thêm 1-2 điểm chiếm đóng mỗi màn
+    const numCP = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < numCP; i++) {
+      spawnCapturePoint();
+    }
   } else {
     state.crates = []; // Không sinh thùng ở màn boss (hoặc tùy chọn)
   }
 
-  // SỬA: Không gọi bossSummonGhosts trong initGame vì nó được quản lý ở update.js
-  /* if (state.isBossLevel && state.boss) {
-    if (!state.boss.ghostsActive) {
-      if (state.boss.summonCooldown > 0) {
-        state.boss.summonCooldown--;
-      } else {
-        bossSummonGhosts();
-        state.boss.ghostsActive = true;
-      }
-    } else {
-      if (state.ghosts.length === 0) {
-        state.boss.ghostsActive = false;
-        state.boss.summonCooldown = 10 * FPS; // Reset cooldown
-      }
-    }
-  } */
   updateHealthUI();
   updateXPUI();
-  UI.timer.innerText = state.isBossLevel ? "BOSS" : "00:00";
+  UI.timer.innerText = state.isBossLevel ? "BOSS" : "TIÊU DIỆT TẤT CẢ";
   UI.level.innerText = `Màn: ${state.currentLevel}`;
   UI.ghosts.innerText = `Quái: ${state.ghosts.length}`;
 }

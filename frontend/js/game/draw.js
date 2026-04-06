@@ -109,6 +109,8 @@ export function draw(ctx, canvas) {
 
   // Vẽ lưới background (Grid) để dễ nhận biết người chơi đang di chuyển trong map to
   drawMapGrid(ctx);
+  // Vẽ vết cháy vĩnh viễn (nằm dưới cùng)
+  drawPermanentScars(ctx);
 
   // --- DRAW SWARM ZONES ---
   state.swarmZones.forEach(sz => {
@@ -144,6 +146,10 @@ export function draw(ctx, canvas) {
   });
 
   drawCrates(ctx);
+  drawCapturePoints(ctx);
+  drawItems(ctx);
+  drawSatellite(ctx);
+  drawGodMode(ctx);
   drawFloatingTexts(ctx); // Thêm hàm vẽ chữ bay ở đây
 
   let { player, boss, bullets, ghosts, mouse, activeBuffs } = state;
@@ -1363,6 +1369,49 @@ export function draw(ctx, canvas) {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+
+    // --- DRAW MINI-BOSS HP BAR (UPGRADED) ---
+    if (g.isMiniBoss && g.hp !== undefined) {
+      const barWidth = 100;
+      const barHeight = 12;
+      const bx = g.x - barWidth / 2;
+      const by = g.y - g.radius - 25;
+
+      // 1. Black Background
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(bx, by, barWidth, barHeight);
+
+      // 2. HP Fill (Red/Orange)
+      const hpRatio = Math.max(0, g.hp / g.maxHp);
+      ctx.fillStyle = g.hp > g.maxHp * 0.3 ? "#ff1144" : "#ff9900";
+      ctx.fillRect(bx, by, barWidth * hpRatio, barHeight);
+
+      // 3. Shield Fill (Cyan Overlay)
+      if (g.shieldActive && (g.shield || 0) > 0) {
+        const shieldRatio = Math.max(0, g.shield / g.maxShield);
+        ctx.fillStyle = "rgba(0, 255, 255, 0.7)"; 
+        ctx.fillRect(bx, by, barWidth * shieldRatio, barHeight);
+        
+        // Pulsing border for shield
+        const pulse = (Math.sin(state.frameCount * 0.2) + 1) * 0.5;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + pulse * 0.4})`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(bx, by, barWidth * shieldRatio, barHeight);
+      }
+
+      // 4. Outer Border
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bx, by, barWidth, barHeight);
+
+      // 5. Boss Label (Optional check)
+      if (g.hp > 0) {
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 10px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("MINI BOSS", g.x, by - 5);
+      }
+    }
   }
 
   let isScoutQ = char === "scout" && buffs.q > 0;
@@ -2151,6 +2200,12 @@ export function draw(ctx, canvas) {
   }
 
   drawMinimap(ctx, canvas);
+
+  if (state.nukeFlash > 0) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${state.nukeFlash / 20})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    state.nukeFlash--;
+  }
 }
 
 function drawSuctionParticles(ctx) {
@@ -2377,16 +2432,52 @@ function drawMinimap(ctx, canvas) {
     state.camera.height * scaleY
   );
 
-
   // 5. Thùng vật phẩm (Chấm nâu nhỏ)
   if (state.crates) {
     state.crates.forEach(c => {
       const x = mmX + c.x * scaleX;
       const y = mmY + c.y * scaleY;
-      ctx.fillStyle = "#8B4513"; // Saddle Brown
+      ctx.fillStyle = "#8B4513";
       ctx.beginPath();
-      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
       ctx.fill();
+    });
+  }
+
+  // 6. Điểm chiếm đóng (Hình thoi vàng to, nổi bật hơn)
+  if (state.capturePoints) {
+    state.capturePoints.forEach(cp => {
+      if (cp.state === "completed") return;
+      const x = mmX + cp.x * scaleX;
+      const y = mmY + cp.y * scaleY;
+      const size = 6; // To hơn
+      
+      // Vẽ bóng đổ/halo
+      ctx.fillStyle = "rgba(255, 215, 0, 0.4)";
+      ctx.beginPath();
+      ctx.arc(x, y, size + 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFD700";
+      ctx.beginPath();
+      ctx.moveTo(x, y - size);
+      ctx.lineTo(x + size, y);
+      ctx.lineTo(x, y + size);
+      ctx.lineTo(x - size, y);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Nếu còn boss canh giữ, vẽ chữ "B" nhỏ
+      if (cp.state === "guarding") {
+        ctx.fillStyle = "#ff0000";
+        ctx.font = "bold 8px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("B", x, y + 3);
+      }
     });
   }
 }
@@ -2465,4 +2556,258 @@ function drawCrates(ctx) {
     ctx.restore();
   });
 }
+
+function drawCapturePoints(ctx) {
+  if (!state.capturePoints) return;
+  state.capturePoints.forEach((cp) => {
+    if (cp.state === "completed") return;
+
+    ctx.save();
+    const pulse = Math.sin(state.frameCount * 0.1) * 10;
+    const progressRatio = cp.progress / cp.totalProgress;
+
+    // 1. Vòng tròn sạc (Enhanced)
+    if (cp.state === "charging") {
+      const opacity = 0.15 + progressRatio * 0.45;
+      
+      // 1a. VùNG NăNG LƯỢNG NỀN (Vibrant Floor)
+      ctx.globalCompositeOperation = "lighter";
+      const floorGrad = ctx.createRadialGradient(cp.x, cp.y, 0, cp.x, cp.y, cp.radius);
+      floorGrad.addColorStop(0, `rgba(255, 180, 0, ${opacity * 0.8})`);
+      floorGrad.addColorStop(0.5, `rgba(255, 100, 0, ${opacity * 0.4})`);
+      floorGrad.addColorStop(1, "rgba(255, 50, 0, 0)");
+      
+      ctx.fillStyle = floorGrad;
+      ctx.beginPath();
+      ctx.arc(cp.x, cp.y, cp.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 1b. HEX-GRID / RUNE CIRCLE (Vibrant Visuals)
+      ctx.save();
+      ctx.translate(cp.x, cp.y);
+      ctx.rotate(state.frameCount * 0.015);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const segments = 12;
+      for (let i = 0; i < segments; i++) {
+        const a1 = (i / segments) * Math.PI * 2;
+        const a2 = ((i + 1) / segments) * Math.PI * 2;
+        ctx.moveTo(Math.cos(a1) * (cp.radius * 0.9), Math.sin(a1) * (cp.radius * 0.9));
+        ctx.lineTo(Math.cos(a2) * (cp.radius * 0.9), Math.sin(a2) * (cp.radius * 0.9));
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.globalCompositeOperation = "source-over";
+
+      // Runes
+      ctx.save();
+      ctx.translate(cp.x, cp.y);
+      ctx.rotate(state.frameCount * 0.02);
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity + 0.3})`;
+      ctx.font = "bold 24px Georgia";
+      const runeCount = 12;
+      for (let i = 0; i < runeCount; i++) {
+        const angle = (i / runeCount) * Math.PI * 2;
+        const runes = ["᚛", "᚜", "ᚣ", "ᚤ", "ᚥ", "ᚦ"];
+        ctx.fillText(runes[i % runes.length], Math.cos(angle) * (cp.radius - 40), Math.sin(angle) * (cp.radius - 40));
+      }
+      ctx.restore();
+
+      // Inner spinning ring
+      ctx.save();
+      ctx.translate(cp.x, cp.y);
+      ctx.rotate(-state.frameCount * 0.05);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 + progressRatio * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([20, 40]);
+      ctx.beginPath();
+      ctx.arc(0, 0, cp.radius * 0.6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 2. Pillar (Enhanced Fortress Style)
+    // Energy Beam piercing through
+    if (cp.state === "charging") {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const beamW = 10 + Math.sin(state.frameCount * 0.2) * 5;
+      const beamGrad = ctx.createLinearGradient(cp.x - beamW, 0, cp.x + beamW, 0);
+      beamGrad.addColorStop(0, "rgba(255, 100, 0, 0)");
+      beamGrad.addColorStop(0.5, `rgba(255, 255, 255, ${0.4 + progressRatio * 0.6})`);
+      beamGrad.addColorStop(1, "rgba(255, 100, 0, 0)");
+      ctx.fillStyle = beamGrad;
+      ctx.fillRect(cp.x - beamW / 2, cp.y - 1000, beamW, 1000); // Beam lên trời
+      ctx.restore();
+    }
+
+    const pillarGrad = ctx.createLinearGradient(cp.x - 25, cp.y, cp.x + 25, cp.y);
+    pillarGrad.addColorStop(0, "#111");
+    pillarGrad.addColorStop(0.5, "#333");
+    pillarGrad.addColorStop(1, "#111");
+    ctx.fillStyle = pillarGrad;
+    ctx.beginPath();
+    ctx.moveTo(cp.x - 20, cp.y + 20);
+    ctx.lineTo(cp.x - 25, cp.y - 80);
+    ctx.lineTo(cp.x + 25, cp.y - 80);
+    ctx.lineTo(cp.x + 20, cp.y + 20);
+    ctx.fill();
+    
+    // Orb with Pulsing Core
+    const orbColor = cp.state === "charging" ? `hsl(${30 + progressRatio * 30}, 100%, 60%)` : "#444";
+    ctx.save();
+    ctx.shadowBlur = cp.state === "charging" ? 25 + pulse : 0;
+    ctx.shadowColor = orbColor;
+    ctx.fillStyle = orbColor;
+    ctx.beginPath();
+    ctx.arc(cp.x, cp.y - 85, 18 + (cp.state === "charging" ? Math.sin(state.frameCount * 0.2) * 3 : 0), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 3. Laser & Shockwave
+    if (cp.state === "charging") {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = `rgba(255, 50, 50, ${0.4 + Math.random() * 0.4})`;
+      ctx.lineWidth = 4 + Math.random() * 4;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = "red";
+      ctx.beginPath();
+      ctx.moveTo(cp.x, cp.y - 80);
+      ctx.lineTo(cp.x + Math.cos(cp.laserAngle) * cp.radius, cp.y + Math.sin(cp.laserAngle) * cp.radius);
+      ctx.stroke();
+      
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      if (state.frameCount - cp.lastPulseTime < 45) {
+        const sRatio = Math.max(0, Math.min(1, (state.frameCount - cp.lastPulseTime) / 45));
+        ctx.strokeStyle = `rgba(255, 255, 255, ${1 - sRatio})`;
+        ctx.lineWidth = 4 * (1 - sRatio);
+        ctx.beginPath();
+        const shockRadius = Math.max(0, cp.radius * sRatio * 2);
+        ctx.arc(cp.x, cp.y, shockRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // 4. Progress bar
+    const barW = 120;
+    const barH = 12;
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(cp.x - barW / 2 - 2, cp.y - 132, barW + 4, barH + 4, 6);
+    else ctx.rect(cp.x - barW / 2 - 2, cp.y - 132, barW + 4, barH + 4);
+    ctx.fill();
+    
+    ctx.fillStyle = "#ffaa00";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(cp.x - barW / 2, cp.y - 130, barW * progressRatio, barH, 4);
+    else ctx.rect(cp.x - barW / 2, cp.y - 130, barW * progressRatio, barH);
+    ctx.fill();
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "center";
+    const label = cp.state === "guarding" ? "🛡️ DIỆT THỦ VỆ" : "⚡ ĐANG CHIẾM ĐỨNG...";
+    ctx.fillText(label, cp.x, cp.y - 145);
+
+    ctx.restore();
+  });
+}
+
+function drawPermanentScars(ctx) {
+  if (!state.permanentScars) return;
+  state.permanentScars.forEach((s) => {
+    ctx.save();
+    const grad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.radius);
+    grad.addColorStop(0, "rgba(20, 10, 0, 0.8)");
+    grad.addColorStop(0.7, "rgba(40, 20, 0, 0.4)");
+    grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawItems(ctx) {
+  if (!state.items) return;
+  state.items.forEach((item) => {
+    ctx.save();
+    const pulse = Math.sin(state.frameCount * 0.1) * 5;
+    const grad = ctx.createRadialGradient(item.x, item.y, 0, item.x, item.y, item.radius + 20 + pulse);
+    grad.addColorStop(0, "rgba(0, 255, 255, 0.4)");
+    grad.addColorStop(1, "rgba(0, 255, 255, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, item.radius + 20 + pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#0ff";
+    ctx.beginPath();
+    ctx.moveTo(item.x, item.y - item.radius);
+    ctx.lineTo(item.x + item.radius, item.y);
+    ctx.lineTo(item.x, item.y + item.radius);
+    ctx.lineTo(item.x - item.radius, item.y);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(item.rewardType, item.x, item.y + item.radius + 25);
+    ctx.restore();
+  });
+}
+
+function drawSatellite(ctx) {
+  const d = state.satelliteDrone;
+  if (!d) return;
+
+  ctx.save();
+  ctx.fillStyle = "#0af";
+  ctx.beginPath();
+  ctx.arc(d.x, d.y, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(d.x - 15, d.y);
+  ctx.lineTo(d.x + 15, d.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGodMode(ctx) {
+  const gm = state.godMode;
+  if (!gm || !gm.active) return;
+  
+  const p = state.player;
+  ctx.save();
+  const pulse = Math.sin(state.frameCount * 0.2) * 10;
+  const grad = ctx.createRadialGradient(p.x, p.y, p.radius, p.x, p.y, p.radius + 40 + pulse);
+  grad.addColorStop(0, "rgba(255, 215, 0, 0.6)");
+  grad.addColorStop(0.5, "rgba(255, 100, 0, 0.2)");
+  grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+  
+  ctx.fillStyle = grad;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.radius + 40 + pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+
+
 

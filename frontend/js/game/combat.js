@@ -3,7 +3,7 @@ import { FPS } from "../config.js";
 import { dist } from "../utils.js";
 import { UI, updateHealthUI, updateXPUI } from "../ui.js";
 import { playSound } from "./audio.js";
-import { spawnHazard } from "../entities.js";
+import { spawnHazard, spawnSatelliteDrone } from "../entities.js";
 
 export function playerTakeDamage(ctx, canvas, changeStateFn, amount = 1) {
   if (state.player.isInvincible) return; // FIX I-FRAMES
@@ -431,7 +431,7 @@ export function updateBullets(
         ) {
           b.hitList.push(g);
 
-          if (state.isBossLevel || g.parentZoneId) {
+          if ((state.isBossLevel && !g.isMiniBoss && !g.isSubBoss) || g.parentZoneId) {
             ghosts.splice(j, 1);
             if (g.parentZoneId) {
               const zone = state.swarmZones.find((sz) => sz.id === g.parentZoneId);
@@ -521,8 +521,30 @@ export function updateBullets(
               finalDmg *= 2;
             }
 
-            g.isStunned = finalDmg >= 2 ? 600 : 300;
-            g.hp = (g.hp || 1) - finalDmg;
+            if (g.isMiniBoss && g.shieldActive && (g.shield || 0) > 0) {
+              // CƠ CHẾ GIÁP BOSS: Giảm trừ vào giáp trước
+              g.shield -= finalDmg;
+              if (g.shield <= 0) {
+                g.shield = 0;
+                g.shieldActive = false;
+                g.isStunned = 180; // Choáng nặng 3 giây khi vỡ giáp
+              }
+              finalDmg = 0; // Không trừ HP khi còn giáp
+            }
+
+            if (!g.isMiniBoss && !g.isSubBoss) {
+              g.isStunned = finalDmg >= 2 ? 600 : 300;
+            } else if (!g.isMiniBoss) {
+              // SubBoss thông thường bị khựng nhẹ
+              g.isStunned = Math.max(g.isStunned || 0, 20);
+            } else if (!g.shieldActive) {
+              // MiniBoss chỉ bị khựng nếu đã vỡ giáp
+              g.isStunned = Math.max(g.isStunned || 0, 20);
+            }
+
+            if (finalDmg > 0) {
+              g.hp = (g.hp || 1) - finalDmg;
+            }
             addExperience(6, changeStateFn);
             state.player.coins = (state.player.coins || 0) + 5;
           }
@@ -600,7 +622,7 @@ export function updateBullets(
         g.x > 0 &&
         dist(player.x, player.y, g.x, g.y) < player.radius + 45
       ) {
-        if (state.isBossLevel) {
+        if (state.isBossLevel && !g.isMiniBoss) {
           ghosts.splice(j, 1);
           state.player.coins = (state.player.coins || 0) + 10;
         } else {
@@ -670,3 +692,81 @@ export function destroyCrate(crate, index, changeStateFn) {
 
   state.crates.splice(index, 1);
 }
+
+export function triggerNuke() {
+  // 🎥 Rung màn hình cực đại
+  if (!state.screenShake) state.screenShake = { timer: 0, intensity: 0 };
+  state.screenShake.timer = 60;
+  state.screenShake.intensity = 25;
+
+  // 💥 Tiêu diệt toàn bộ kẻ thù (trừ boss/mini-boss/sub-boss chỉ mất máu lớn)
+  state.ghosts.forEach((g) => {
+    if (g.isMiniBoss || g.isSubBoss) {
+      g.shield = 0;
+      g.shieldActive = false;
+      g.hp -= g.maxHp * 0.3; // Elite mất 30% máu
+    } else {
+      g.hp = 0;
+    }
+  });
+  if (state.boss) {
+    state.boss.hp -= state.boss.maxHp * 0.3; // Boss mất 30% máu
+  }
+
+  // 🧹 Xóa toàn bộ đạn của địch
+  state.bullets = state.bullets.filter((b) => b.isPlayer);
+
+  // 🎨 Hiệu ứng nổ trắng bao phủ toàn map
+  if (!state.explosions) state.explosions = [];
+  state.explosions.push({
+    x: state.player.x,
+    y: state.player.y,
+    radius: 3000,
+    life: 40,
+    color: "rgba(255, 255, 255, 0.9)",
+  });
+
+  state.nukeFlash = 20; // Flash trắng màn hình
+}
+
+export function applyCaptureReward(type) {
+  if (type === "NUKE") {
+    triggerNuke();
+  } else if (type === "GOD_MODE") {
+    state.godMode = {
+      active: true,
+      timer: 15 * 60, // 15 giây (Sử dụng 60 làm FPS chuẩn)
+      prevSpeed: state.player.speed,
+      prevRadius: state.player.radius
+    };
+    state.player.speed *= 1.4; // Giảm từ 2.0 xuống 1.4
+    state.player.radius *= 1.5; // Giảm từ 2.0 xuống 1.5
+  } else if (type === "SATELLITE") {
+    spawnSatelliteDrone();
+  } else if (type === "RARE_TICKET") {
+    state.resources.rareTickets = (state.resources.rareTickets || 0) + 1;
+    state.floatingTexts.push({
+      x: state.player.x,
+      y: state.player.y - 50,
+      text: "+1 VÉ QUAY RARE!",
+      color: "#00ffff",
+      life: 120,
+      opacity: 1
+    });
+  } else if (type === "EPIC_TICKET") {
+    state.resources.epicTickets = (state.resources.epicTickets || 0) + 1;
+    state.floatingTexts.push({
+      x: state.player.x,
+      y: state.player.y - 50,
+      text: "+1 VÉ QUAY EPIC!",
+      color: "#ff00ff",
+      life: 150,
+      opacity: 1
+    });
+  }
+
+  // Hồi phục 100% máu như phần thưởng phụ
+  state.player.hp = state.player.maxHp;
+}
+
+
