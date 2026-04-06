@@ -1,0 +1,14 @@
+# Gán nhãn 'backend' khi có thay đổi trong thư mục backend
+backend:
+  - changed-files:
+    - any-glob-to-any-file: 'backend/**/*'
+
+# Gán nhãn 'frontend' khi có thay đổi trong thư mục frontend
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'frontend/**/*'
+
+# Gán nhãn 'actions' khi thay đổi file cấu hình workflow
+actions:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**/*'
