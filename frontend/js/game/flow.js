@@ -8,7 +8,7 @@ import {
   BOSS_FRAGMENT_DROP_RATE,
   BOSS_ARENA_REWARDS,
 } from "../config.js";
-import { saveGame } from "../utils.js";
+import { saveGame, dist } from "../utils.js";
 import { UI, updateHealthUI, updateXPUI, generateCards } from "../ui.js";
 import { generateDummy } from "../entities.js";
 import {
@@ -158,6 +158,50 @@ export function initGame(isNextLevel = false) {
     UI.bossHp.style.width = "100%";
     state.ghosts = [];
   }
+
+  // --- INITIALIZE SWARM ZONES ---
+  const shouldRegenZones = state.swarmZones.length === 0 || state.swarmZones.every(sz => sz.isCompleted);
+  
+  if (shouldRegenZones) {
+    state.swarmZones = [];
+    if (!state.isBossLevel) {
+      // Mỗi đợt rải đúng 3 khu vực bầy đàn, đảm bảo không chồng lấn
+      const numZones = 3;
+      for (let i = 0; i < numZones; i++) {
+          let x, y, overlap;
+          let attempts = 0;
+          const radius = 500;
+          
+          do {
+              overlap = false;
+              x = 500 + Math.random() * (state.world.width - 1000);
+              y = 500 + Math.random() * (state.world.height - 1000);
+              
+              // Kiểm tra khoảng cách với các vùng đã có
+              for (const existing of state.swarmZones) {
+                  if (dist(x, y, existing.x, existing.y) < radius * 2) {
+                      overlap = true;
+                      break;
+                  }
+              }
+              attempts++;
+          } while (overlap && attempts < 50);
+
+          state.swarmZones.push({
+              id: `swarm_${state.currentLevel}_${i}_${Date.now()}`,
+              x: x,
+              y: y,
+              radius: radius,
+              requiredKills: 15 + state.currentLevel * 5,
+              currentKills: 0,
+              isCompleted: false,
+              active: false,
+              spawnedLocalGhosts: false
+          });
+      }
+    }
+  }
+
   // SỬA: Không gọi bossSummonGhosts trong initGame vì nó được quản lý ở update.js
   /* if (state.isBossLevel && state.boss) {
     if (!state.boss.ghostsActive) {

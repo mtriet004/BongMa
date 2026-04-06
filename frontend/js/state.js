@@ -60,7 +60,6 @@ export const state = {
   skillsCD: { q: 0, e: 0, r: 0 },
   activeBuffs: { q: 0, e: 0, r: 0 },
 
-  // Biến kĩ năng cho từng nhân vật (để reset sạch sẽ khi đổi màn)
   phoenixTrails: [],
   phoenixEfx: null,
   phoenixReviveReady: false,
@@ -94,6 +93,8 @@ export const state = {
   knightShield: null,
   knightRage: null,
   isScoutQ: false,
+  
+  floatingTexts: [], // Mảng chứa các đoạn chữ bay (XP, Gold, v.v.)
 
   // ===== Elemental Combat System =====
   hazards: [], // { x, y, radius, type, life, damage, color }
@@ -114,7 +115,7 @@ export const state = {
   // ===== Cinematic Boss Overhaul & Safe Zones =====
   bossBeams: [], // { x1, y1, x2, y2, state: 'charge'|'fire', timer }
   groundWarnings: [], // { x, y, radius, timer, maxTimer, type: 'lightning'|'rock' }
-  safeZones: [], // { x, y, radius, timer }
+  safeZones: [], 
   globalHazard: {
     type: null, // 'fire', 'electric', 'ice'
     active: false,
@@ -176,6 +177,7 @@ export const state = {
     earth: "#996633",
     wind: "#00ffcc",
   },
+  swarmZones: [],
 };
 
 export function resetGlitchState() {

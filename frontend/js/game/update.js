@@ -52,6 +52,9 @@ export function update(ctx, canvas, changeStateFn) {
     delayedTasks,
   } = state;
 
+  updateBullets(ctx, canvas, changeStateFn);
+  updateFloatingTexts(); // Thêm hàm cập nhật chữ bay
+
   // Xử lý các tác vụ trì hoãn (thay thế setTimeout)
   if (delayedTasks && delayedTasks.length > 0) {
     for (let i = delayedTasks.length - 1; i >= 0; i--) {
@@ -1761,18 +1764,133 @@ export function update(ctx, canvas, changeStateFn) {
     });
   }
 
+  // --- SWARM ZONE DETECTION ---
+  let activeZone = null;
+  state.swarmZones.forEach(sz => {
+    if (sz.isCompleted) return;
+    const d = dist(player.x, player.y, sz.x, sz.y);
+    if (d < sz.radius) {
+      activeZone = sz;
+      sz.active = true;
+    } else {
+      sz.active = false;
+    }
+  });
+
+  // PHẦN LOGIC ĐẶC BIỆT: Spawn quái "bầy đàn" cho Swarm Zone
+  if (activeZone && state.frameCount % 120 === 0) { // Giảm tần suất spawn để không quá lag
+    if (!state.ghosts) state.ghosts = [];
+
+    const currentZoneGhosts = state.ghosts.filter(g => g.parentZoneId === activeZone.id).length;
+    const remainingToSpawn = activeZone.requiredKills - activeZone.currentKills - currentZoneGhosts;
+
+    if (remainingToSpawn > 0 && currentZoneGhosts < 10) {
+      const spawnBatch = Math.min(5, remainingToSpawn);
+      for (let j = 0; j < spawnBatch; j++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * (activeZone.radius - 50);
+        const gx = activeZone.x + Math.cos(angle) * r;
+        const gy = activeZone.y + Math.sin(angle) * r;
+
+        const dummyPath = [];
+        for (let k = 0; k < 5000; k++) dummyPath.push([gx, gy]);
+
+        state.ghosts.push({
+          record: dummyPath,
+          speedRate: 1,
+          timer: 0,
+          x: gx,
+          y: gy,
+          radius: 15,
+          hp: 1 + Math.floor(state.currentLevel / 3), // HP tăng nhẹ theo LV
+          isDummy: true,
+          parentZoneId: activeZone.id,
+          historyPath: [],
+          lastShot: state.frameCount + Math.random() * 60
+        });
+      }
+    }
+  }
+
   let activeGhosts = 0;
 
   // DỌN DẸP QUÁI CHẾT SẠCH SẼ & THÊM HIỆU ỨNG NỔ TUNG
   for (let i = state.ghosts.length - 1; i >= 0; i--) {
     let g = state.ghosts[i];
 
+    // --- CLEANUP FINISHED SWARM GHOSTS ---
+    if (g.parentZoneId) {
+      const zone = state.swarmZones.find(z => z.id === g.parentZoneId);
+      if (zone && zone.isCompleted) {
+        state.ghosts.splice(i, 1);
+        continue;
+      }
+    }
+
+    // --- BARRIER LOGIC FOR GLOBAL GHOSTS ---
+    // Nếu là quái bình thường (không thuộc zone) và đi vào vùng có người chơi đang làm nhiệm vụ -> đẩy ra
+    if (activeZone && !g.parentZoneId) {
+      const dToZone = dist(g.x, g.y, activeZone.x, activeZone.y);
+      if (dToZone < activeZone.radius) {
+        const angle = Math.atan2(g.y - activeZone.y, g.x - activeZone.x);
+        g.x = activeZone.x + Math.cos(angle) * activeZone.radius;
+        g.y = activeZone.y + Math.sin(angle) * activeZone.radius;
+      }
+    }
+
     // 1. Kiểm tra điều kiện quái bị trúng đòn (Hết HP hoặc bị Choáng)
     let isHit =
       (g.hp !== undefined && g.hp <= 0) || (!g.isSubBoss && g.isStunned > 0);
 
     if (isHit && !g.isRespawning) {
-      // Hiệu ứng nổ tại vị trí vừa chết
+      // --- SWARM ZONE KILL TRACKING ---
+      if (g.parentZoneId) {
+        const zone = state.swarmZones.find(sz => sz.id === g.parentZoneId);
+        if (zone) {
+          zone.currentKills++;
+          if (zone.currentKills >= zone.requiredKills) {
+            zone.isCompleted = true;
+            const xpReward = 200 * state.currentLevel;
+            const coinReward = 50 * state.currentLevel;
+            state.player.experience += xpReward;
+            state.player.coins += coinReward;
+
+            // Hiển thị chữ kinh nghiệm bay lên
+            state.floatingTexts.push({
+              x: zone.x,
+              y: zone.y,
+              text: `+${xpReward} XP`,
+              color: "#00ffcc",
+              size: 30,
+              opacity: 1,
+              life: 100
+            });
+            // Hiển thị tiền bay lên
+            state.floatingTexts.push({
+              x: zone.x,
+              y: zone.y + 40,
+              text: `+${coinReward} Gold`,
+              color: "#ffcc00",
+              size: 30,
+              opacity: 1,
+              life: 100
+            });
+          }
+        }
+        // Hiệu ứng nổ tại vị trí vừa chết
+        if (!state.explosions) state.explosions = [];
+        state.explosions.push({
+          x: g.x,
+          y: g.y,
+          radius: 20,
+          life: 15,
+          color: "rgba(255, 200, 0, 0.8)", // Màu vàng/cam cho bầy đàn
+        });
+        state.ghosts.splice(i, 1);
+        continue;
+      }
+
+      // Hiệu ứng nổ cho quái thường
       if (g.x > 0) {
         state.player.coins = (state.player.coins || 0) + 2;
         if (!state.explosions) state.explosions = [];
@@ -1821,20 +1939,49 @@ export function update(ctx, canvas, changeStateFn) {
     }
 
     // 3. Cập nhật vị trí bình thường cho quái đang sống
-    g.timer++;
-    let exactIndex = g.timer * g.speedRate;
-    let idx = Math.floor(exactIndex);
+    if (g.parentZoneId) {
+      // AI BẦY ĐÀN: Đuổi theo người chơi RẤT chậm rãi
+      const angle = Math.atan2(player.y - g.y, player.x - g.x);
+      const speed = 0.8 + (state.currentLevel * 0.05); // Giảm tốc độ đáng kể
+      g.x += Math.cos(angle) * speed;
+      g.y += Math.sin(angle) * speed;
 
-    if (idx < g.record.length) {
-      g.x = g.record[idx][0];
-      g.y = g.record[idx][1];
-    } else if (!g.historyPath || g.historyPath.length === 0) {
-      state.ghosts.splice(i, 1); // Xóa quái khi đi hết quỹ đạo
+      // RÀO CHẮN (LEASH): Giữ quái ở trong vùng
+      const zone = state.swarmZones.find(sz => sz.id === g.parentZoneId);
+      if (zone) {
+        const dToCenter = dist(g.x, g.y, zone.x, zone.y);
+        if (dToCenter > zone.radius) {
+          const angleBack = Math.atan2(zone.y - g.y, zone.x - g.x);
+          // Đẩy mạnh quái trở lại vùng trung tâm
+          g.x += Math.cos(angleBack) * (speed + 2);
+          g.y += Math.sin(angleBack) * (speed + 2);
+        }
+      }
+
+      // Bắn đạn (Pellets) liên tục
+      if (state.frameCount - (g.lastShot || 0) > 90 + Math.random() * 60) {
+        // SỬA: Phải truyền targetX và targetY cụ thể thay vì chỉ chuyền góc
+        const tx = g.x + Math.cos(angle) * 100;
+        const ty = g.y + Math.sin(angle) * 100;
+        spawnBullet(g.x, g.y, tx, ty, false, 4); // Bắn về phía người chơi, style vàng (4)
+        g.lastShot = state.frameCount;
+      }
+    } else {
+      g.timer++;
+      let exactIndex = g.timer * g.speedRate;
+      let idx = Math.floor(exactIndex);
+
+      if (idx < g.record.length) {
+        g.x = g.record[idx][0];
+        g.y = g.record[idx][1];
+      } else if (!g.historyPath || g.historyPath.length === 0) {
+        state.ghosts.splice(i, 1); // Xóa quái khi đi hết quỹ đạo
+      }
     }
   }
 
   for (let g of state.ghosts) {
-    if (g.isRespawning) continue;
+    if (g.isRespawning || g.parentZoneId) continue; // SỬA: Quái bầy đã có AI riêng, bỏ qua loop này để tránh bị nhân đôi tốc độ
 
     if (!isTimeFrozen) {
       let exactIndex = g.timer * g.speedRate;
@@ -2340,4 +2487,18 @@ export function update(ctx, canvas, changeStateFn) {
   }
 
   return null;
+}
+
+function updateFloatingTexts() {
+  for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+    let t = state.floatingTexts[i];
+    t.y -= 1; // Bay lên
+    t.life--;
+    if (t.life < 20) {
+      t.opacity -= 0.05;
+    }
+    if (t.life <= 0) {
+      state.floatingTexts.splice(i, 1);
+    }
+  }
 }

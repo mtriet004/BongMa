@@ -399,15 +399,66 @@ export function updateBullets(
         if (b.hitList.includes(g)) continue;
 
         if (
-          g.isStunned <= 0 &&
+          (g.isStunned <= 0 || g.parentZoneId) && // SỬA: Quái bầy không được hưởng "miễn nhiễm" khi bị stun
           g.x > 0 &&
           dist(b.x, b.y, g.x, g.y) < g.radius + b.radius
         ) {
           b.hitList.push(g);
 
-          if (state.isBossLevel) {
+          if (state.isBossLevel || g.parentZoneId) {
             ghosts.splice(j, 1);
-            state.player.coins = (state.player.coins || 0) + 10;
+            if (g.parentZoneId) {
+              const zone = state.swarmZones.find((sz) => sz.id === g.parentZoneId);
+              if (zone && !zone.isCompleted) {
+                zone.currentKills++;
+                addExperience(6, changeStateFn);
+                state.player.coins = (state.player.coins || 0) + 5;
+
+                // --- MISSION COMPLETION CHECK ---
+                if (zone.currentKills >= zone.requiredKills) {
+                  zone.isCompleted = true;
+                  const xpReward = 500 * state.currentLevel;
+                  const coinReward = 200 * state.currentLevel;
+                  state.player.experience += xpReward;
+                  state.player.coins += coinReward;
+
+                  // Hiển thị chữ kinh nghiệm bay lên
+                  state.floatingTexts.push({
+                    x: zone.x,
+                    y: zone.y,
+                    text: `+${xpReward} XP`,
+                    color: "#00ffcc",
+                    size: 30,
+                    opacity: 1,
+                    life: 100
+                  });
+                  // Hiển thị tiền bay lên
+                  state.floatingTexts.push({
+                    x: zone.x,
+                    y: zone.y + 40,
+                    text: `+${coinReward} Gold`,
+                    color: "#ffcc00",
+                    size: 30,
+                    opacity: 1,
+                    life: 100
+                  });
+                  
+                  // Hiệu ứng Mission Clear bằng loạt nổ màu Cyan
+                  if (!state.explosions) state.explosions = [];
+                  for (let i = 0; i < 15; i++) {
+                      state.explosions.push({
+                        x: zone.x + (Math.random() - 0.5) * zone.radius * 1.5,
+                        y: zone.y + (Math.random() - 0.5) * zone.radius * 1.5,
+                        radius: 60,
+                        life: 45,
+                        color: "rgba(0, 255, 255, 0.8)" 
+                      });
+                  }
+                }
+              }
+            } else {
+              state.player.coins = (state.player.coins || 0) + 10;
+            }
           } else {
             let finalDmg = b.damage || 1;
 

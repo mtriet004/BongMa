@@ -110,14 +110,47 @@ export function draw(ctx, canvas) {
   // Vẽ lưới background (Grid) để dễ nhận biết người chơi đang di chuyển trong map to
   drawMapGrid(ctx);
 
+  // --- DRAW SWARM ZONES ---
+  state.swarmZones.forEach(sz => {
+    if (sz.isCompleted) return;
+    ctx.save();
+    const pulse = Math.sin(state.frameCount * 0.1) * 20;
+    const opacity = sz.active ? 0.3 : 0.15;
+    
+    // Vẽ vùng tròn mờ
+    const grad = ctx.createRadialGradient(sz.x, sz.y, 0, sz.x, sz.y, sz.radius + pulse);
+    grad.addColorStop(0, `rgba(255, 100, 0, ${opacity})`);
+    grad.addColorStop(1, "rgba(255, 50, 0, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(sz.x, sz.y, sz.radius + pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Vẽ viền đứt đoạn
+    ctx.strokeStyle = `rgba(255, 150, 0, ${opacity + 0.3})`;
+    ctx.lineWidth = 4;
+    ctx.setLineDash([15, 10]);
+    ctx.lineDashOffset = -state.frameCount * 0.5;
+    ctx.beginPath();
+    ctx.arc(sz.x, sz.y, sz.radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Vẽ text tiêu đề
+    ctx.fillStyle = "#ffcc00";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("⚠️ SWARM ZONE ⚠️", sz.x, sz.y - sz.radius - 20);
+    ctx.restore();
+  });
+
+  drawFloatingTexts(ctx); // Thêm hàm vẽ chữ bay ở đây
+
   let { player, boss, bullets, ghosts, mouse, activeBuffs } = state;
   let buffs = activeBuffs || { q: 0, e: 0, r: 0 };
   const char = player?.characterId;
 
   if (!state.particles) state.particles = [];
 
-  // --- Background & Global Hazards ---
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (
     state.globalHazard &&
     state.globalHazard.active &&
@@ -2218,6 +2251,28 @@ function drawHUD(ctx, canvas) {
     ctx.fillStyle = "white";
     ctx.fillText("SHIELD / STANCE", centerX, centerY + 11);
   }
+
+  // --- Swarm Zone HUD ---
+  const activeZone = state.swarmZones.find(sz => sz.active && !sz.isCompleted);
+  if (activeZone) {
+    const hudX = canvas.width / 2;
+    const hudY = canvas.height - 150;
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(hudX - 150, hudY, 300, 40);
+    ctx.strokeStyle = "#ffcc00";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(hudX - 150, hudY, 300, 40);
+
+    const progress = activeZone.currentKills / activeZone.requiredKills;
+    ctx.fillStyle = "#ffaa00";
+    ctx.fillRect(hudX - 145, hudY + 5, 290 * progress, 30);
+
+    ctx.fillStyle = "white";
+    ctx.font = "bold 16px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`SWARM MISSION: ${activeZone.currentKills}/${activeZone.requiredKills}`, hudX, hudY + 26);
+  }
 }
 
 // ✅ THAY THẾ BẰNG HÀM NÀY:
@@ -2293,6 +2348,24 @@ function drawMinimap(ctx, canvas) {
     drawDot(state.player, "#00ffcc", 3);
   }
 
+  // 3.5. Swarm Zones (Chấm vàng cam nhấp nháy)
+  state.swarmZones.forEach(sz => {
+    if (sz.isCompleted) return;
+    const color = (state.frameCount % 40 < 20) ? "#ffaa00" : "#aa5500";
+    const x = mmX + sz.x * scaleX;
+    const y = mmY + sz.y * scaleY;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
   // 4. Khung Camera (Hiển thị phần map người chơi đang nhìn thấy)
   ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
   ctx.lineWidth = 1;
@@ -2302,4 +2375,17 @@ function drawMinimap(ctx, canvas) {
     state.camera.width * scaleX,
     state.camera.height * scaleY
   );
+}
+
+function drawFloatingTexts(ctx) {
+  state.floatingTexts.forEach(t => {
+    ctx.save();
+    ctx.fillStyle = t.color || "#fff";
+    ctx.font = `bold ${t.size || 20}px Arial`;
+    ctx.textAlign = "center";
+    ctx.globalAlpha = t.opacity || 1;
+    // Vẽ chữ theo tọa độ thế giới (vì camera đã dịch chuyển)
+    ctx.fillText(t.text, t.x, t.y);
+    ctx.restore();
+  });
 }
