@@ -178,6 +178,8 @@ export const state = {
     wind: "#00ffcc",
   },
   swarmZones: [],
+  crates: [], // Thùng vật phẩm
+  activePlayerBuffs: [], // Buff tạm thời (tốc độ bắn, v.v.)
 };
 
 export function resetGlitchState() {

@@ -143,6 +143,7 @@ export function draw(ctx, canvas) {
     ctx.restore();
   });
 
+  drawCrates(ctx);
   drawFloatingTexts(ctx); // Thêm hàm vẽ chữ bay ở đây
 
   let { player, boss, bullets, ghosts, mouse, activeBuffs } = state;
@@ -2375,7 +2376,21 @@ function drawMinimap(ctx, canvas) {
     state.camera.width * scaleX,
     state.camera.height * scaleY
   );
+
+
+  // 5. Thùng vật phẩm (Chấm nâu nhỏ)
+  if (state.crates) {
+    state.crates.forEach(c => {
+      const x = mmX + c.x * scaleX;
+      const y = mmY + c.y * scaleY;
+      ctx.fillStyle = "#8B4513"; // Saddle Brown
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
 }
+
 
 function drawFloatingTexts(ctx) {
   state.floatingTexts.forEach(t => {
@@ -2389,3 +2404,65 @@ function drawFloatingTexts(ctx) {
     ctx.restore();
   });
 }
+
+function drawCrates(ctx) {
+  if (!state.crates) return;
+  state.crates.forEach((c) => {
+    ctx.save();
+
+    // Thùng gỗ (Hình vuông gỗ)
+    ctx.fillStyle = "#8d6e63"; // Màu gỗ sáng
+    ctx.strokeStyle = "#5d4037"; // Màu gỗ đậm làm viền
+    ctx.lineWidth = 3;
+
+    const x = c.x - c.radius;
+    const y = c.y - c.radius;
+    const size = c.radius * 2;
+
+    // Bóng đổ nhẹ
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "rgba(0,0,0,0.3)";
+    ctx.fillRect(x, y, size, size);
+    ctx.shadowBlur = 0;
+    ctx.strokeRect(x, y, size, size);
+
+    // Vẽ khung chéo 'X' kiểu thùng gỗ cổ điển
+    ctx.strokeStyle = "#4e342e";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + 4);
+    ctx.lineTo(x + size - 4, y + size - 4);
+    ctx.moveTo(x + size - 4, y + 4);
+    ctx.lineTo(x + 4, y + size - 4);
+    ctx.stroke();
+
+    // Thanh máu mini khi bị đánh
+    if (c.hp < c.maxHp) {
+      const bw = size * 0.8;
+      const bh = 4;
+      const bx = c.x - bw / 2;
+      const by = y - 10;
+
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(bx, by, bw, bh);
+
+      ctx.fillStyle = "#ff4444";
+      ctx.fillRect(bx, by, bw * (c.hp / c.maxHp), bh);
+    }
+
+    // Icon hiển thị phần thưởng mờ mờ
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    let icon = "?";
+    if (c.type === "GOLD") icon = "💰";
+    if (c.type === "XP") icon = "✨";
+    if (c.type === "FIRE_RATE") icon = "⚡";
+    if (c.type === "HP_REGEN") icon = "➕";
+    ctx.fillText(icon, c.x, c.y + 6);
+
+    ctx.restore();
+  });
+}
+
