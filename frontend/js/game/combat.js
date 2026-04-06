@@ -391,6 +391,32 @@ export function updateBullets(
         if (!b.pierce) continue;
       }
 
+      // --- VA CHẠM VỚI THÙNG VẬT PHẨM ---
+      let hitCrate = false;
+      if (state.crates) {
+        for (let j = state.crates.length - 1; j >= 0; j--) {
+          let crate = state.crates[j];
+          if (dist(b.x, b.y, crate.x, crate.y) < crate.radius + b.radius) {
+            crate.hp -= b.damage || 1;
+            playSound("damage");
+
+            if (crate.hp <= 0) {
+              destroyCrate(crate, j, changeStateFn);
+            }
+
+            if (!b.pierce) {
+              hitCrate = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (hitCrate) {
+        bullets.splice(i, 1);
+        continue;
+      }
+
       let hitGhost = false;
       for (let j = ghosts.length - 1; j >= 0; j--) {
         let g = ghosts[j];
@@ -585,4 +611,62 @@ export function updateBullets(
       }
     }
   }
+}
+
+export function destroyCrate(crate, index, changeStateFn) {
+  const types = {
+    GOLD: {
+      text: `+${50 * state.currentLevel} Gold`,
+      color: "#ffcc00",
+      action: () => (state.player.coins += 50 * state.currentLevel),
+    },
+    XP: {
+      text: `+${100 * state.currentLevel} XP`,
+      color: "#00ffcc",
+      action: () => addExperience(100 * state.currentLevel, changeStateFn),
+    },
+    FIRE_RATE: {
+      text: "BUFF TỐC ĐỘ BẮN!",
+      color: "#ff00ff",
+      action: () => {
+        state.activePlayerBuffs.push({ type: "FIRE_RATE", timer: 10 * FPS });
+      },
+    },
+    HP_REGEN: {
+      text: "BUFF HỒI MÁU!",
+      color: "#00ff00",
+      action: () => {
+        state.activePlayerBuffs.push({ type: "HP_REGEN", timer: 15 * FPS });
+      },
+    },
+  };
+
+  const reward = types[crate.type] || types.GOLD;
+  reward.action();
+
+  state.floatingTexts.push({
+    x: crate.x,
+    y: crate.y,
+    text: reward.text,
+    color: reward.color,
+    size: 24,
+    opacity: 1,
+    life: 100,
+  });
+
+  // Hiệu ứng vỡ thùng
+  if (!state.particles) state.particles = [];
+  for (let i = 0; i < 12; i++) {
+    state.particles.push({
+      x: crate.x,
+      y: crate.y,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.5) * 8,
+      life: 20 + Math.random() * 20,
+      color: "#8B4513", // Saddle Brown
+      size: 2 + Math.random() * 4,
+    });
+  }
+
+  state.crates.splice(index, 1);
 }

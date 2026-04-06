@@ -8,6 +8,7 @@ import {
   bossSummonGhosts,
   ATTACK_MODES,
   SPECIAL_SKILLS,
+  spawnCrate,
 } from "../entities.js";
 import { updateBullets, playerTakeDamage } from "./combat.js";
 
@@ -54,6 +55,8 @@ export function update(ctx, canvas, changeStateFn) {
 
   updateBullets(ctx, canvas, changeStateFn);
   updateFloatingTexts(); // Thêm hàm cập nhật chữ bay
+  updatePlayerBuffs();
+  updateCrates();
 
   // Xử lý các tác vụ trì hoãn (thay thế setTimeout)
   if (delayedTasks && delayedTasks.length > 0) {
@@ -152,6 +155,12 @@ export function update(ctx, canvas, changeStateFn) {
   if (isScoutR) currentFireRate = Math.max(2, player.fireRate * 0.6);
   if (isKnightR) currentFireRate = Math.max(2, player.fireRate * 0.6);
 
+  // Apply Player Buffs (from Crates)
+  let fireRateBuff = state.activePlayerBuffs.find(b => b.type === "FIRE_RATE");
+  if (fireRateBuff) {
+    currentFireRate = Math.max(2, currentFireRate * 0.5);
+  }
+
   let isSharpshootE = player.characterId === "sharpshooter" && buffs.e > 0;
   let currentMultiShot = player.multiShot + (isSharpshootE ? 3 : 0);
   if (isSummonerE) currentMultiShot += 2;
@@ -249,6 +258,19 @@ export function update(ctx, canvas, changeStateFn) {
     player.y += dy * currentSpeed;
     player.isInvincible = false;
   }
+
+  // --- Crate Collision (Obstacles) ---
+  state.crates.forEach((c) => {
+    const dxh = player.x - c.x;
+    const dyh = player.y - c.y;
+    const d = Math.sqrt(dxh * dxh + dyh * dyh);
+    const minDist = player.radius + c.radius - 5;
+    if (d < minDist) {
+      const angle = Math.atan2(dyh, dxh);
+      player.x = c.x + Math.cos(angle) * minDist;
+      player.y = c.y + Math.sin(angle) * minDist;
+    }
+  });
 
   // --- Safe Zones Update (Moving/Shrinking) ---
   for (let sz of state.safeZones) {
@@ -2502,3 +2524,34 @@ function updateFloatingTexts() {
     }
   }
 }
+
+function updatePlayerBuffs() {
+  const activeBuffs = state.activePlayerBuffs || [];
+  for (let i = activeBuffs.length - 1; i >= 0; i--) {
+    let buff = activeBuffs[i];
+    buff.timer--;
+
+    if (buff.type === "HP_REGEN") {
+      // Hồi 1 HP mỗi 5 giây trong suốt 15 giây (tổng cộng 3 HP)
+      if (buff.timer % (5 * FPS) === 0 && buff.timer > 0) {
+        if (state.player.hp < state.player.maxHp) {
+          state.player.hp = Math.min(state.player.maxHp, state.player.hp + 1);
+          updateHealthUI();
+        }
+      }
+    }
+
+    if (buff.timer <= 0) {
+      activeBuffs.splice(i, 1);
+    }
+  }
+}
+
+function updateCrates() {
+  if (state.isBossLevel) return;
+  // Khi còn 3 thùng hoặc ít hơn, sinh thêm thùng (mỗi 2 giây kiểm tra 1 lần)
+  if (state.crates.length <= 3 && state.frameCount % 120 === 0) {
+    spawnCrate();
+  }
+}
+

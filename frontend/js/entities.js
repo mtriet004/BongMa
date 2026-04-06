@@ -2071,3 +2071,65 @@ export function bossSummonGhosts() {
     });
   });
 }
+
+// =======================
+// ITEM CRATE SYSTEM
+// =======================
+export function spawnCrate() {
+  const maxCrates = 10;
+  if (state.crates.length >= maxCrates) return;
+
+  let x, y, overlap;
+  let attempts = 0;
+  const radius = 25;
+
+  do {
+    overlap = false;
+    x = radius + 50 + Math.random() * (state.world.width - radius * 2 - 100);
+    y = radius + 50 + Math.random() * (state.world.height - radius * 2 - 100);
+
+    // Tránh swarmZones (né xa thêm 50px cho an toàn)
+    if (state.swarmZones) {
+      for (const zone of state.swarmZones) {
+        if (dist(x, y, zone.x, zone.y) < zone.radius + radius + 50) {
+          overlap = true;
+          break;
+        }
+      }
+    }
+
+    // Tránh các thùng khác
+    if (!overlap && state.crates) {
+      for (const crate of state.crates) {
+        if (dist(x, y, crate.x, crate.y) < radius * 2 + 20) {
+          overlap = true;
+          break;
+        }
+      }
+    }
+
+    // Tránh người chơi lúc spawn (bán kính 200px)
+    if (!overlap && state.player && dist(x, y, state.player.x, state.player.y) < 200) {
+      overlap = true;
+    }
+
+    attempts++;
+  } while (overlap && attempts < 50);
+
+  if (!overlap) {
+    const rewards = ["GOLD", "XP", "FIRE_RATE", "HP_REGEN"];
+    const type = rewards[Math.floor(Math.random() * rewards.length)];
+    const hp = 1 + Math.floor(Math.random() * 5);
+
+    state.crates.push({
+      id: `crate_${Date.now()}_${Math.random()}`,
+      x,
+      y,
+      radius,
+      hp: hp,
+      maxHp: hp,
+      type: type,
+    });
+  }
+}
+

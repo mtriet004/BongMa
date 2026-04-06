@@ -18,7 +18,7 @@ import {
 import { syncRemoteState, persistState } from "../auth.js";
 import { initSkills } from "./skills.js";
 import { playBGM, stopAllBGM, playSound } from "./audio.js";
-import { createBoss, bossSummonGhosts, BOSS_TYPES } from "../entities.js";
+import { createBoss, bossSummonGhosts, BOSS_TYPES, spawnCrate } from "../entities.js";
 export function initGame(isNextLevel = false) {
   let saved = JSON.parse(localStorage.getItem(GHOST_DATA_KEY) || "{}");
 
@@ -200,6 +200,16 @@ export function initGame(isNextLevel = false) {
           });
       }
     }
+  }
+
+  // --- INITIALIZE ITEM CRATES ---
+  if (!state.isBossLevel) {
+    state.crates = [];
+    for (let i = 0; i < 10; i++) {
+      spawnCrate();
+    }
+  } else {
+    state.crates = []; // Không sinh thùng ở màn boss (hoặc tùy chọn)
   }
 
   // SỬA: Không gọi bossSummonGhosts trong initGame vì nó được quản lý ở update.js
