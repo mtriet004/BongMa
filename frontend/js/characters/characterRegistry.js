@@ -74,6 +74,15 @@ export const Characters = {
     knight
 };
 
+export function triggerCharacterSkill(charId, key, state, canvas, changeStateFn) {
+    const char = Characters[charId];
+    if (char && typeof char.onTrigger === "function") {
+        return char.onTrigger(key, state, canvas, changeStateFn);
+    }
+    return true;
+}
+
+
 export function updateActiveCharacter(state, ctx, canvas, buffs, changeStateFn) {
     const charId = state.player.characterId;
     const char = Characters[charId];

@@ -1,82 +1,146 @@
-import { dist } from "../utils.js";
+import { dist } from "../../utils.js";
+import { FPS } from "../../config.js";
 
 export const reaper = {
     id: "reaper",
-    update: (state, ctx, canvas, buffs, changeStateFn) => {
-        let { player, ghosts, boss } = state;
 
-        // Kỹ năng E: Tăng tốc độ di chuyển
-        if (buffs.e > 0) {
-            state.playerSpeedMultiplier = (state.playerSpeedMultiplier || 1) * 1.5;
-        }
+    onTrigger: (key, state, canvas, changeStateFn) => {
+        const { player, mouse, ghosts, boss } = state;
 
-        // Kỹ năng R: Tuyệt kỹ trảm - Tiêu diệt quái thường ngay lập tức (Nuke)
-        // Chỉ kích hoạt tại frame đầu tiên của buffs.r
-        if (buffs.r === 1) {
+        // Q: Trảm Hồn - Cắt một nhát bán nguyệt phía trước
+        if (key === "q") {
+            state.activeBuffs.q = 15;
+            let angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+
+            state.reaperSlash = {
+                x: player.x,
+                y: player.y,
+                angle: angle,
+                life: 15,
+            };
+
+            // Gây sát thương và Stun cho quái nằm trong góc chém (180 độ phía trước)
             ghosts.forEach((g) => {
-                if (g.x > 0) {
-                    if (g.isMiniBoss || g.isSubBoss) {
-                        // Boss/Elite chỉ mất 25% máu
-                        g.shield = 0;
-                        g.shieldActive = false;
-                        g.hp -= g.maxHp * 0.25;
-                        g.isStunned = Math.max(g.isStunned, 120);
-                    } else {
-                        g.hp = 0; // Quái thường chết luôn
+                if (g.x > 0 && dist(player.x, player.y, g.x, g.y) < 180) {
+                    let a = Math.atan2(g.y - player.y, g.x - player.x);
+                    let diff = Math.abs(a - angle);
+                    if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                    // Góc chém rộng 180 độ (Math.PI / 2 mỗi bên)
+                    if (diff < Math.PI / 2) {
+                        g.hp -= 15;
+                        g.isStunned = 80;
                     }
                 }
             });
+            // Sát thương lên Boss
+            if (boss && dist(player.x, player.y, boss.x, boss.y) < 180 + boss.radius) {
+                let a = Math.atan2(boss.y - player.y, boss.x - player.x);
+                let diff = Math.abs(a - angle);
+                if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                if (diff < Math.PI / 2) boss.hp -= 25;
+            }
+        }
 
-            if (boss) boss.hp -= boss.maxHp * 0.25;
+        // E: Bóng Đêm (Tăng tốc di chuyển và để lại tàn ảnh)
+        if (key === "e") {
+            state.activeBuffs.e = 3 * FPS;
+        }
 
-            // Hiệu ứng nổ đen toàn màn hình
+        // R: Án Tử Hình - Giết tất cả quái nhỏ toàn bản đồ, trừ máu % Boss
+        if (key === "r") {
+            state.activeBuffs.r = 2 * FPS; // Thời gian hiển thị aura đen
+            state.screenShake = { timer: 30, intensity: 12 };
+
+            ghosts.forEach(g => {
+                if (g.x > 0) {
+                    if (g.isMiniBoss || g.isSubBoss) {
+                        g.shield = 0;
+                        g.shieldActive = false;
+                        g.hp -= g.maxHp * 0.25; // Elite mất 25% máu
+                        g.isStunned = Math.max(g.isStunned, 120);
+                    } else {
+                        g.hp = 0; // Quái thường chết lập tức
+                    }
+                }
+            });
+            if (boss) boss.hp -= boss.maxHp * 0.15; // Boss mất 15% máu
+
+            // Tạo hiệu ứng nổ khổng lồ giữa bản đồ
             if (!state.explosions) state.explosions = [];
             state.explosions.push({
-                x: state.world.width / 2,
-                y: state.world.height / 2,
+                x: player.x,
+                y: player.y,
                 radius: 2000,
-                life: 20,
+                life: 30,
                 color: "rgba(0, 0, 0, 0.8)",
             });
         }
+        return true;
+    },
 
-        // Làm choáng quái gần người khi R hoạt động
-        if (buffs.r > 0) {
-            ghosts.forEach((g) => {
-                if (g.x > 0 && dist(player.x, player.y, g.x, g.y) < 180) {
-                    g.isStunned = Math.max(g.isStunned, 60);
-                }
-            });
+    update: (state) => {
+        // Tăng tốc E và tạo bóng
+        if (state.activeBuffs.e > 0) {
+            state.playerSpeedMultiplier *= 1.5;
+            if (state.frameCount % 4 === 0) {
+                if (!state.phantoms) state.phantoms = [];
+                state.phantoms.push({
+                    x: state.player.x, y: state.player.y,
+                    life: 15, color: "rgba(0, 0, 0, 0.5)", radius: state.player.radius
+                });
+            }
+        }
+
+        // Giảm thời gian hiển thị nhát chém Q
+        if (state.reaperSlash) {
+            state.reaperSlash.life--;
+            if (state.reaperSlash.life <= 0) state.reaperSlash = null;
+        }
+
+        // Quản lý bóng Phantoms từ chiêu E
+        if (state.phantoms) {
+            state.phantoms.forEach(p => p.life--);
+            state.phantoms = state.phantoms.filter(p => p.life > 0);
         }
     },
 
-    draw: (state, ctx, canvas, buffs) => {
-        let { player } = state;
+    draw: (state, ctx, canvas) => {
+        const { player, activeBuffs } = state;
 
-        // Vẽ hiệu ứng Trảm (Q/E)
-        if (buffs.q > 0 && state.reaperSlash) {
-            let s = state.reaperSlash;
+        // Vẽ Nhát Chém (Q)
+        if (state.reaperSlash) {
+            const s = state.reaperSlash;
+            ctx.save();
             ctx.beginPath();
-            ctx.arc(s.x, s.y, 150, s.angle - Math.PI / 2, s.angle + Math.PI / 2);
-            ctx.strokeStyle = `rgba(255, 0, 0, ${buffs.q / 15})`;
-            ctx.lineWidth = 30;
+            // Vẽ vòng cung chém
+            ctx.arc(s.x, s.y, 180, s.angle - Math.PI / 2, s.angle + Math.PI / 2);
+            ctx.strokeStyle = `rgba(255, 0, 0, ${s.life / 15})`;
+            ctx.lineWidth = 45;
+            ctx.lineCap = "round";
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "red";
             ctx.stroke();
+            ctx.restore();
         }
 
-        // Vẽ Aura của R
-        if (buffs.r > 0) {
-            // Vòng tròn đỏ mờ báo hiệu phạm vi sát thương
+        // Vẽ Bóng Ma (E)
+        state.phantoms?.forEach(p => {
             ctx.beginPath();
-            ctx.arc(player.x, player.y, 300, 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(30, 0, 30, ${p.life / 15})`;
+            ctx.fill();
+        });
 
-            ctx.fillStyle = `rgba(255, 0, 0, ${(1 - buffs.r / (2 * 60)) * 0.3})`;
+        // Vẽ Aura Tuyệt Sát (R)
+        if (activeBuffs.r > 0) {
+            // Aura đen đỏ to dần rồi nhỏ lại
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 350 + Math.sin(state.frameCount * 0.5) * 20, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 0, 0, ${(activeBuffs.r / (2 * FPS)) * 0.25})`;
             ctx.fill();
 
-            // Filter màn hình đỏ
-            ctx.fillStyle = "rgba(255, 0, 0, 0.18)";
+            // Bôi đen mờ toàn màn hình
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
     }

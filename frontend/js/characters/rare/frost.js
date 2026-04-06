@@ -1,39 +1,62 @@
-import { dist } from "../utils.js";
+import { dist } from "../../utils.js";
+import { FPS } from "../../config.js";
+import { updateHealthUI } from "../../ui.js";
 
 export const frost = {
     id: "frost",
-    update: (state, ctx, canvas, buffs, changeStateFn) => {
+
+    onTrigger: (key, state, canvas, changeStateFn) => {
+        if (key === "q") {
+            state.activeBuffs.q = 2 * FPS;
+        }
+        if (key === "e") {
+            state.player.shield = 1;
+            updateHealthUI();
+            state.activeBuffs.e = 10 * FPS;
+        }
+        if (key === "r") {
+            state.activeBuffs.r = 5 * FPS;
+        }
+        return true;
+    },
+
+    /**
+     * Cập nhật trạng thái liên tục mỗi frame
+     */
+    update: (state, ctx, canvas, buffs) => {
         let { player, ghosts, boss } = state;
 
-        // Kỹ năng Q: Đóng băng bản thân (Bất tử nhưng không thể di chuyển/bắn)
+        // Q: Đóng băng bản thân (Bất tử nhưng đứng yên)
         if (buffs.q > 0) {
-            state.playerSpeedMultiplier = 0; // Đứng yên
-            state.playerCanShootModifier = false; // Không thể bắn
-            // Cờ hiệu bất tử được check ở update chính qua isInvulnSkill
+            state.playerSpeedMultiplier = 0;
+            state.playerCanShootModifier = false;
+            // Note: Bất tử được xử lý chung qua flag buffs.q trong update.js
         }
 
-        // Kỹ năng R: Vùng cực hàn (Gây sát thương diện rộng mỗi 10 frame)
+        // R: Vùng cực hàn (Damage diện rộng)
         if (buffs.r > 0) {
+            state.frostR_Active = true;
             if (state.frameCount % 10 === 0) {
                 ghosts.forEach((g) => {
                     if (g.x > 0 && dist(player.x, player.y, g.x, g.y) < 200) {
                         g.hp = (g.hp || 1) - 10;
+                        g.isStunned = Math.max(g.isStunned, 10);
                     }
                 });
                 if (boss && dist(player.x, player.y, boss.x, boss.y) < 200 + boss.radius) {
                     boss.hp -= 2;
                 }
             }
-
-            // Hiệu ứng làm chậm đạn địch trong vùng R (xử lý ở draw/update đạn)
-            state.frostR_Active = true;
         }
     },
 
+    /**
+     * Vẽ hiệu ứng kỹ năng
+     */
     draw: (state, ctx, canvas, buffs) => {
         let { player } = state;
 
-        // VFX cho kỹ năng Q
+        // Vẽ khối băng Q
         if (buffs.q > 0) {
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius + 15, 0, Math.PI * 2);
@@ -49,7 +72,7 @@ export const frost = {
             ctx.fill();
         }
 
-        // VFX cho kỹ năng R
+        // Vẽ vùng R
         if (buffs.r > 0) {
             ctx.beginPath();
             ctx.arc(player.x, player.y, 200, 0, Math.PI * 2);
