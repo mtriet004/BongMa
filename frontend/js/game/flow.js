@@ -221,7 +221,7 @@ export function initGame(isNextLevel = false) {
 
   updateHealthUI();
   updateXPUI();
-  UI.timer.innerText = state.isBossLevel ? "BOSS" : "TIÊU DIỆT TẤT CẢ";
+  UI.timer.innerText = state.isBossLevel ? "BOSS" : "DẸP SẠCH SWARM ZONE";
   UI.level.innerText = `Màn: ${state.currentLevel}`;
   UI.ghosts.innerText = `Quái: ${state.ghosts.length}`;
 }
