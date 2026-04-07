@@ -187,6 +187,10 @@ export const state = {
   satelliteDrone: null, // Drone vệ tinh hỗ trợ (bay theo người chơi)
   godMode: { active: false, timer: 0 }, // Buff Hóa Thần
   items: [], // Các vật phẩm nhặt được (Crystal thưởng)
+
+  // ===== Hệ thống điều kiện qua màn =====
+  puzzleZone: null,  // { runes: [{x, y, step, activated}], currentStep: 1, solved: false }
+  stagePortal: null, // { x, y, radius, active, pulse }
 };
 
 

@@ -5,6 +5,7 @@ import { UI, updateHealthUI } from "../ui.js";
 import { updateActiveCharacter } from "../characters/characterRegistry.js";
 import { updateBullets, playerTakeDamage, applyCaptureReward, addExperience } from "./combat.js";
 import { updateBoss } from "../entities/bosses/boss_manager.js";
+import { startBossFight } from "./flow.js";
 import { spawnBullet } from "../entities/helpers.js";
 import { spawnCrate, spawnCrystal } from "../world/element.js";
 import { ATTACK_MODES, SPECIAL_SKILLS } from "../entities/bosses/patterns.js";
@@ -345,10 +346,12 @@ export function update(ctx, canvas, changeStateFn) {
       }
 
       if (!state.explosions) state.explosions = [];
-      state.explosions.push({ x: g.x, y: g.y, radius: g.isHorde ? 12 : 20, life: 15, color: g.isHorde ? "rgba(200, 200, 255, 0.6)" : "rgba(255, 200, 0, 0.8)" });
+      state.explosions.push({ x: g.x, y: g.y, radius: g.isHorde ? 1 : 2, life: 15, color: g.isHorde ? "rgba(200, 200, 255, 0.6)" : "rgba(255, 200, 0, 0.8)" });
 
-      if (g.parentZoneId || g.isHorde) { state.ghosts.splice(i, 1); continue; }
-      else {
+      if (g.parentZoneId || g.isHorde || g.isMiniBoss || g.isSubBoss || g.puzzleGuardTag) {
+        // MiniBoss, SubBoss, Horde, và Guard của puzzle → xóa vĩnh viễn (không hồi sinh)
+        state.ghosts.splice(i, 1); continue;
+      } else {
         g.isRespawning = true; g.respawnTimer = 3 * FPS; g.isStunned = 0; g.x = -100; g.y = -100; g.historyPath = [];
         continue;
       }
@@ -414,12 +417,18 @@ export function update(ctx, canvas, changeStateFn) {
             let moveSpeed = (g.speedRate || 1.0) * (g.speed || 1.1);
             g.x += Math.cos(angle) * moveSpeed; g.y += Math.sin(angle) * moveSpeed;
             if (state.frameCount % 60 === 0) spawnBullet(g.x, g.y, player.x, player.y, false, 2, "ghost", 1.5);
-          } else if (dist(g.x, g.y, g.originalX, g.originalY) > 10) {
-            if (g.hp < g.maxHp || (g.shield || 0) < (g.maxShield || 0)) {
-              g.hp = g.maxHp; g.shield = g.maxShield; g.shieldActive = true; g.isStunned = 0;
+          } else {
+            // Rút về nhà — KHÔNG hồi máu trong khi di chuyển
+            const dHome = dist(g.x, g.y, g.originalX, g.originalY);
+            if (dHome > 15) {
+              let angleHome = Math.atan2(g.originalY - g.y, g.originalX - g.x);
+              g.x += Math.cos(angleHome) * 4.5; g.y += Math.sin(angleHome) * 4.5;
+            } else {
+              // Đã về đến nhà → mới hồi máu/khiên
+              if (g.hp < g.maxHp || (g.shield || 0) < (g.maxShield || 0)) {
+                g.hp = g.maxHp; g.shield = g.maxShield; g.shieldActive = true; g.isStunned = 0;
+              }
             }
-            let angleHome = Math.atan2(g.originalY - g.y, g.originalX - g.x);
-            g.x += Math.cos(angleHome) * 4.5; g.y += Math.sin(angleHome) * 4.5;
           }
         } else if (g.isSubBoss || g.isMiniBoss) {
           let angle = Math.atan2(player.y - g.y, player.x - g.x);
@@ -588,6 +597,8 @@ export function update(ctx, canvas, changeStateFn) {
   // --- 9. CÁC HÀM UPDATE RỜI RẠC & UI ---
   updateCapturePoints(ctx, canvas, changeStateFn);
   updateItems(changeStateFn);
+  updatePuzzleZone();
+  updateStagePortal();
   updateCrates();
   updatePlayerBuffs();
   updateSatelliteDrone();
@@ -618,17 +629,10 @@ export function update(ctx, canvas, changeStateFn) {
     : `Quái: ${activeGhosts}`;
   document.getElementById("coins-count").innerText = `Tiền: ${state.player?.coins || 0}`;
 
-  // Kiểm tra qua màn (Swarm Mode)
-  // Kiểm tra qua màn (Swarm Mode) - Đã vô hiệu hóa tạm thời
-  if (!state.isBossLevel) {
-    let allZonesCleared = state.swarmZones?.every(zone => zone.isCompleted);
-
-    // Tạm thời comment dòng return "STAGE_CLEAR" lại để không tự qua màn.
-    if (allZonesCleared && state.swarmZones?.length > 0) {
-      // TODO: Bạn sẽ kiểm tra điều kiện Puzzle ở đây trong tương lai.
-      // Ví dụ: if (state.isPuzzleSolved) return "STAGE_CLEAR";
-
-      // Hiện tại cứ để trống, game sẽ tiếp tục chạy vô tận ở màn hiện tại.
+  // Kiểm tra qua màn: player bước vào cổng dịch chuyển
+  if (!state.isBossLevel && state.stagePortal?.active) {
+    if (dist(player.x, player.y, state.stagePortal.x, state.stagePortal.y) < state.stagePortal.radius) {
+      startBossFight();
     }
   }
 
@@ -687,7 +691,8 @@ function updateCapturePoints(ctx, canvas, changeStateFn) {
     if (cp.state === "completed") return;
 
     if (cp.state === "guarding") {
-      const bossAlive = state.ghosts.find((g) => (g.id === cp.miniBossId || (g.isMiniBoss && dist(g.x, g.y, cp.x, cp.y) < 400)) && g.hp > 0);
+      // Tìm boss theo id (đáng tin cậy hơn), fallback theo vị trí nhưng bán kính lớn hơn
+      const bossAlive = state.ghosts.find((g) => g.id === cp.miniBossId && g.hp > 0);
       if (!bossAlive) {
         cp.state = "charging";
         state.floatingTexts.push({ x: cp.x, y: cp.y - 120, text: "BOSS ĐÃ CHẾT! HÃY CHIẾM ĐÓNG!", color: "#FFD700", life: 120, opacity: 1 });
@@ -744,6 +749,9 @@ function updateCapturePoints(ctx, canvas, changeStateFn) {
         state.permanentScars.push({ x: cp.x, y: cp.y, radius: cp.maxRadius * 0.85 });
         spawnCrystal(cp.x, cp.y, cp.rewardType);
         state.floatingTexts.push({ x: cp.x, y: cp.y - 150, text: "CHIẾM ĐÓNG THÀNH CÔNG!", color: "#00FFDD", size: 36, life: 200, opacity: 1 });
+        // Dọn sạch miniBoss liên quan (phòng trường hợp còn sót)
+        const bossIdx = state.ghosts.findIndex(g => g.id === cp.miniBossId);
+        if (bossIdx !== -1) state.ghosts.splice(bossIdx, 1);
       }
 
       if (isInside && state.frameCount % 120 === 0) {
@@ -800,4 +808,114 @@ function updateGodMode() {
   if (gm.timer <= 0) {
     gm.active = false; state.player.speed = gm.prevSpeed; state.player.radius = gm.prevRadius; state.godMode = null;
   }
+}
+
+// ===== PUZZLE ZONE =====
+function updatePuzzleZone() {
+  const pz = state.puzzleZone;
+  if (!pz || pz.solved || state.isBossLevel) return;
+  const player = state.player;
+  if (!player || player.hp <= 0) return;
+
+  // Kiểm tra obelisk gợi ý
+  if (!pz.clueRevealed && dist(player.x, player.y, pz.clueX, pz.clueY) < 80) {
+    pz.clueRevealed = true;
+    state.floatingTexts.push({ x: pz.clueX, y: pz.clueY - 100, text: `THỨ TỰ: ${pz.orderDisplay}`, color: "#FFD700", size: 30, life: 300, opacity: 1 });
+    state.screenShake = { timer: 15, intensity: 5 };
+  }
+
+  // Kiểm tra rune đang ở trạng thái "pending" — chờ tiêu diệt hết quái canh gác
+  for (const rune of pz.runes) {
+    if (rune.runeState !== "pending") continue;
+    const guardsAlive = state.ghosts.some(g => g.puzzleGuardTag === rune.symbol);
+    if (!guardsAlive) {
+      // Tất cả canh gác đã chết → xác nhận kích hoạt
+      rune.runeState = "activated";
+      rune.activated = true;
+      pz.currentStep++;
+      state.floatingTexts.push({ x: rune.x, y: rune.y - 80, text: `✔ RUNE ${rune.symbol} KẾT NẠP!`, color: "#00ffcc", size: 28, life: 120, opacity: 1 });
+      if (pz.currentStep > 4) {
+        pz.solved = true;
+        state.floatingTexts.push({ x: player.x, y: player.y - 140, text: "🧩 GIẢI ĐỐ HOÀN THÀNH!", color: "#ff00ff", size: 36, life: 250, opacity: 1 });
+      }
+    }
+  }
+
+  // Kiểm tra player chạm rune (chỉ khi rune ở trạng thái idle)
+  for (const rune of pz.runes) {
+    if (rune.runeState !== "idle") continue;
+    if (dist(player.x, player.y, rune.x, rune.y) >= 55) continue;
+
+    if (rune.step === pz.currentStep) {
+      // Đúng thứ tự — chuyển sang pending, spawn canh gác
+      rune.runeState = "pending";
+      state.floatingTexts.push({ x: rune.x, y: rune.y - 80, text: `⚔ TIÊU DIỆT CANH GIỮ RUNE ${rune.symbol}!`, color: "#ffaa00", size: 24, life: 150, opacity: 1 });
+      state.screenShake = { timer: 20, intensity: 8 };
+      const waveSize = 5 + Math.floor(state.currentLevel * 1.5);
+      for (let i = 0; i < waveSize; i++) {
+        const a = (i / waveSize) * Math.PI * 2;
+        const dist2 = 120 + Math.random() * 150;
+        state.ghosts.push({
+          id: `puzzle_guard_${rune.symbol}_${Date.now()}_${i}`,
+          puzzleGuardTag: rune.symbol,
+          isHorde: true,   // dùng Horde AI để đuổi theo player
+          x: rune.x + Math.cos(a) * dist2,
+          y: rune.y + Math.sin(a) * dist2,
+          radius: 13, hp: 25 + state.currentLevel * 6, maxHp: 25 + state.currentLevel * 6,
+          speed: 1.8 + Math.random() * 0.5, isStunned: 0, historyPath: [],
+          color: "#ff6600",
+        });
+      }
+    } else {
+      // Sai thứ tự — reset tất cả + xoá canh gác đang chờ + phạt nặng
+      state.ghosts = state.ghosts.filter(g => !g.puzzleGuardTag);
+      pz.runes.forEach(r => { r.activated = false; r.runeState = "idle"; });
+      pz.currentStep = 1;
+      state.floatingTexts.push({ x: rune.x, y: rune.y - 90, text: `✘ SAI! CẦN: ${pz.orderDisplay}`, color: "#ff4444", size: 26, life: 150, opacity: 1 });
+      state.screenShake = { timer: 35, intensity: 14 };
+      const penaltyCount = 8 + state.currentLevel * 2;
+      for (let i = 0; i < penaltyCount; i++) {
+        const a = Math.random() * Math.PI * 2;
+        state.ghosts.push({
+          id: `puzzle_penalty_${Date.now()}_${i}`,
+          isHorde: true,   // dùng Horde AI để đuổi theo player
+          x: player.x + Math.cos(a) * (100 + Math.random() * 200),
+          y: player.y + Math.sin(a) * (100 + Math.random() * 200),
+          radius: 12, hp: 30 + state.currentLevel * 6, maxHp: 30 + state.currentLevel * 6,
+          speed: 2.2, isStunned: 0, historyPath: [],
+        });
+      }
+    }
+    break;
+  }
+}
+
+// ===== CỔNG DỊCH CHUYỂN =====
+function updateStagePortal() {
+  if (state.isBossLevel) return;
+
+  // Kích hoạt cổng khi đủ 3 điều kiện
+  if (!state.stagePortal?.active) {
+    const puzzleSolved = state.puzzleZone?.solved === true;
+    const swarmsDone = state.swarmZones?.length > 0 && state.swarmZones.every(z => z.isCompleted);
+    const specialsDone = (state.capturePoints?.filter(cp => cp.state === "completed").length || 0) >= 2;
+
+    if (puzzleSolved && swarmsDone && specialsDone) {
+      state.stagePortal = {
+        x: state.world.width / 2 + (Math.random() - 0.5) * 400,
+        y: state.world.height / 2 + (Math.random() - 0.5) * 400,
+        radius: 65,
+        active: true,
+        pulse: 0,
+      };
+      state.floatingTexts.push({
+        x: state.world.width / 2, y: state.world.height / 2 - 200,
+        text: "⚡ CỔNG BOSS ĐÃ MỞ! ⚡", color: "#cc00ff", size: 40, life: 300, opacity: 1,
+      });
+      state.screenShake = { timer: 60, intensity: 15 };
+    }
+    return;
+  }
+
+  state.stagePortal.pulse = (state.stagePortal.pulse || 0) + 1;
 }

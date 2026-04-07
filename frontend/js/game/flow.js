@@ -85,7 +85,7 @@ export function initGame(isNextLevel = false) {
   if (state.player.experienceToLevel == null)
     state.player.experienceToLevel = 100;
 
-  state.isBossLevel = state.currentLevel % 5 === 0;
+  state.isBossLevel = false; // Boss được kích hoạt khi player bước vào cổng sau khi hoàn thành 3 điều kiện
 
   if (!isNextLevel) {
     state.player.x = 400;
@@ -136,27 +136,7 @@ export function initGame(isNextLevel = false) {
     });
   });
 
-  if (state.isBossLevel) {
-    state.maxFramesToSurvive = 999999;
-
-    // Debug: Force a specific boss for testing
-    const debugBossType = null; // Change this to the boss you want to test
-
-    // Select boss type based on level or debug option
-    const bossTypes = Object.keys(BOSS_TYPES);
-    const bossIndex = debugBossType
-      ? bossTypes.indexOf(debugBossType)
-      : (Math.floor(state.currentLevel / 5) - 1) % bossTypes.length;
-    const selectedBossType = bossTypes[bossIndex];
-
-    state.boss = createBoss(selectedBossType);
-    state.currentBossType = selectedBossType;
-
-    UI.bossUi.style.display = "block";
-    UI.bossName.innerText = state.boss.name;
-    UI.bossHp.style.width = "100%";
-    state.ghosts = [];
-  }
+  // Boss không còn được khởi tạo tự động - sẽ spawn khi player bước vào cổng portal
 
   // --- INITIALIZE SWARM ZONES ---
   const shouldRegenZones = state.swarmZones.length === 0 || state.swarmZones.every(sz => sz.isCompleted);
@@ -207,16 +187,67 @@ export function initGame(isNextLevel = false) {
     for (let i = 0; i < 10; i++) {
       spawnCrate();
     }
-    // Sinh thêm 1-2 điểm chiếm đóng mỗi màn
-    const numCP = 1 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < numCP; i++) {
+    // Luôn sinh đúng 2 điểm chiếm đóng (specialZone) mỗi màn
+    state.capturePoints = [];
+    for (let i = 0; i < 2; i++) {
       spawnCapturePoint();
     }
+
+    // --- KHỞI TẠO PUZZLE ZONE ---
+    state.puzzleZone = null;
+    state.stagePortal = null;
+    const numRunes = 4;
+    const runePositions = [];
+    for (let i = 0; i < numRunes; i++) {
+      let rx, ry, attempts = 0;
+      do {
+        rx = 600 + Math.random() * (state.world.width - 1200);
+        ry = 600 + Math.random() * (state.world.height - 1200);
+        attempts++;
+      } while (
+        attempts < 50 &&
+        runePositions.some(p => dist(rx, ry, p.x, p.y) < 500)
+      );
+      runePositions.push({ x: rx, y: ry });
+    }
+    // Gán ký hiệu A/B/C/D cho từng rune (vị trí cố định), thứ tự kích hoạt được xáo ngẫu nhiên
+    const runeSymbols = ["A", "B", "C", "D"];
+    const stepOrder = [1, 2, 3, 4].sort(() => Math.random() - 0.5); // thứ tự kích hoạt ngẫu nhiên
+    const symbolByStep = {}; // step → symbol
+    stepOrder.forEach((step, idx) => { symbolByStep[step] = runeSymbols[idx]; });
+    const orderDisplay = [1, 2, 3, 4].map(s => symbolByStep[s]).join(" → "); // "B → D → A → C"
+
+    // Obelisk gợi ý ở trung tâm bản đồ (cách player lúc spawn)
+    let clueX, clueY;
+    let clueAttempts = 0;
+    do {
+      clueX = 800 + Math.random() * (state.world.width - 1600);
+      clueY = 800 + Math.random() * (state.world.height - 1600);
+      clueAttempts++;
+    } while (clueAttempts < 50 && dist(clueX, clueY, state.player?.x || 400, state.player?.y || 500) < 800);
+
+    state.puzzleZone = {
+      runes: runePositions.map((pos, idx) => ({
+        x: pos.x, y: pos.y,
+        symbol: runeSymbols[idx],  // ký hiệu hiển thị (A/B/C/D)
+        step: stepOrder[idx],      // thứ tự kích hoạt nội bộ
+        activated: false,
+        runeState: "idle",         // "idle" | "pending" | "activated"
+      })),
+      currentStep: 1,
+      solved: false,
+      clueX,
+      clueY,
+      clueRevealed: false,
+      orderDisplay,  // "B → D → A → C" — thứ tự đúng
+    };
   } else {
     // Màn boss: xoá sạch mọi thực thể thuộc map thường
     state.crates = [];
     state.capturePoints = [];
     state.swarmZones = [];
+    state.puzzleZone = null;
+    state.stagePortal = null;
   }
 
   updateHealthUI();
@@ -331,6 +362,29 @@ export async function onCardSelected(gameLoopFn) {
 export async function startGame(gameLoopFn) {
   initGame(false);
   changeState("PLAYING", gameLoopFn);
+}
+
+export function startBossFight() {
+  const bossTypes = Object.keys(BOSS_TYPES);
+  const bossIndex = (state.currentLevel - 1) % bossTypes.length;
+  const selectedBossType = bossTypes[bossIndex];
+
+  state.boss = createBoss(selectedBossType);
+  state.currentBossType = selectedBossType;
+  state.isBossLevel = true;
+  state.stagePortal = null; // Ẩn cổng
+  state.ghosts = []; // Xoá quái thường
+  state.bullets = []; // Xoá đạn
+
+  UI.bossUi.style.display = "block";
+  UI.bossName.innerText = state.boss.name;
+  UI.bossHp.style.width = "100%";
+
+  state.screenShake = { x: 0, y: 0, timer: 45, intensity: 18 };
+  if (!state.floatingTexts) state.floatingTexts = [];
+  state.floatingTexts.push({ x: state.player.x, y: state.player.y - 120, text: `⚠ ${state.boss.name} XUẤT HIỆN! ⚠`, color: "#ff3300", life: 200, opacity: 1 });
+
+  playBGM(`BOSS_${state.currentLevel}`);
 }
 
 export function nextStage(gameLoopFn) {

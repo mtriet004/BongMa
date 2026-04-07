@@ -79,10 +79,10 @@ export function spawnCapturePoint() {
             }
         }
 
-        // Tránh các Capture Point khác (Đảm bảo khu vực cách xa nhau - NEW)
+        // Tránh các Capture Point khác
         if (!overlap && state.capturePoints) {
             for (const cp of state.capturePoints) {
-                if (dist(x, y, cp.x, cp.y) < 2200) { // Giảm khoảng cách từ 3000 xuống 2200
+                if (dist(x, y, cp.x, cp.y) < 1500) {
                     overlap = true;
                     break;
                 }
@@ -90,11 +90,11 @@ export function spawnCapturePoint() {
         }
 
         // Tránh người chơi
-        if (!overlap && state.player && dist(x, y, state.player.x, state.player.y) < 1200) {
+        if (!overlap && state.player && dist(x, y, state.player.x, state.player.y) < 800) {
             overlap = true;
         }
         attempts++;
-    } while (overlap && attempts < 200); // Tăng số lần thử lên 200
+    } while (overlap && attempts < 200);
 
     if (!overlap) {
         const id = `cp_${Date.now()}`;
