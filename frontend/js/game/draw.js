@@ -2309,25 +2309,93 @@ function drawHUD(ctx, canvas) {
   }
 
   // --- Swarm Zone HUD ---
-  const activeZone = state.swarmZones.find(sz => sz.active && !sz.isCompleted);
-  if (activeZone) {
-    const hudX = canvas.width / 2;
-    const hudY = canvas.height - 150;
+  if (!state.isBossLevel && state.swarmZones && state.swarmZones.length > 0) {
+    const activeZone = state.swarmZones.find(sz => sz.active && !sz.isCompleted);
+    const completedCount = state.swarmZones.filter(sz => sz.isCompleted).length;
+    const totalZones = state.swarmZones.length;
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(hudX - 150, hudY, 300, 40);
-    ctx.strokeStyle = "#ffcc00";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(hudX - 150, hudY, 300, 40);
+    // Panel nhiệm vụ tổng quát (luôn hiển thị ở góc trên phải)
+    const panelX = canvas.width - 220;
+    const panelY = 80;
+    ctx.save();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillRect(panelX, panelY, 210, 26 + totalZones * 22);
+    ctx.strokeStyle = "#ffaa00";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(panelX, panelY, 210, 26 + totalZones * 22);
 
-    const progress = activeZone.currentKills / activeZone.requiredKills;
-    ctx.fillStyle = "#ffaa00";
-    ctx.fillRect(hudX - 145, hudY + 5, 290 * progress, 30);
+    ctx.font = "bold 13px Arial";
+    ctx.fillStyle = "#ffcc00";
+    ctx.textAlign = "left";
+    ctx.fillText(`📋 NHIỆM VỤ (${completedCount}/${totalZones})`, panelX + 8, panelY + 16);
 
-    ctx.fillStyle = "white";
-    ctx.font = "bold 16px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(`SWARM MISSION: ${activeZone.currentKills}/${activeZone.requiredKills}`, hudX, hudY + 26);
+    state.swarmZones.forEach((sz, idx) => {
+      const yRow = panelY + 28 + idx * 22;
+      const barW = 140;
+      const prog = Math.min(sz.currentKills / sz.requiredKills, 1);
+
+      // Nền thanh progress
+      ctx.fillStyle = sz.isCompleted ? "rgba(0,200,100,0.3)" : "rgba(255,100,0,0.2)";
+      ctx.fillRect(panelX + 8, yRow, barW, 14);
+
+      // Thanh progress
+      ctx.fillStyle = sz.isCompleted ? "#00cc66" : "#ffaa00";
+      ctx.fillRect(panelX + 8, yRow, barW * prog, 14);
+
+      // Viền
+      ctx.strokeStyle = sz.isCompleted ? "#00ff88" : "#ff8800";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(panelX + 8, yRow, barW, 14);
+
+      // Text số kill
+      ctx.font = "bold 10px Arial";
+      ctx.fillStyle = "white";
+      ctx.textAlign = "center";
+      const label = sz.isCompleted ? "✓ XONG" : `${sz.currentKills}/${sz.requiredKills}`;
+      ctx.fillText(label, panelX + 8 + barW / 2, yRow + 10);
+
+      // Mũi tên chỉ hướng nếu chưa xong
+      if (!sz.isCompleted) {
+        const dx = sz.x - state.player.x;
+        const dy = sz.y - state.player.y;
+        const angle = Math.atan2(dy, dx);
+        const arrowX = panelX + 165;
+        const arrowY = yRow + 7;
+        ctx.save();
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(angle);
+        ctx.fillStyle = sz.active ? "#00ffcc" : "#ffcc00";
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-5, -5);
+        ctx.lineTo(-5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    });
+    ctx.restore();
+
+    // HUD lớn ở dưới khi đang trong zone active
+    if (activeZone) {
+      const hudX = canvas.width / 2;
+      const hudY = canvas.height - 150;
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillRect(hudX - 150, hudY, 300, 40);
+      ctx.strokeStyle = "#ffcc00";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(hudX - 150, hudY, 300, 40);
+
+      const progress = activeZone.currentKills / activeZone.requiredKills;
+      ctx.fillStyle = "#ffaa00";
+      ctx.fillRect(hudX - 145, hudY + 5, 290 * progress, 30);
+
+      ctx.fillStyle = "white";
+      ctx.font = "bold 16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(`⚔️ TIÊU DIỆT: ${activeZone.currentKills}/${activeZone.requiredKills}`, hudX, hudY + 26);
+    }
   }
 }
 

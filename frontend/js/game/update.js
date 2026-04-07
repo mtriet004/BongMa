@@ -1834,38 +1834,41 @@ export function update(ctx, canvas, changeStateFn) {
   });
 
   // PHẦN LOGIC ĐẶC BIỆT: Spawn quái "bầy đàn" cho Swarm Zone
-  if (activeZone && state.frameCount % 120 === 0) { // Giảm tần suất spawn để không quá lag
+  // Spawn cho TẤT CẢ zone (không cần player phải đứng trong zone)
+  if (state.frameCount % 120 === 0) {
     if (!state.ghosts) state.ghosts = [];
 
-    const currentZoneGhosts = state.ghosts.filter(g => g.parentZoneId === activeZone.id).length;
-    const remainingToSpawn = activeZone.requiredKills - activeZone.currentKills - currentZoneGhosts;
+    state.swarmZones.forEach(sz => {
+      if (sz.isCompleted) return;
 
-    if (remainingToSpawn > 0 && currentZoneGhosts < 10) {
-      const spawnBatch = Math.min(5, remainingToSpawn);
-      for (let j = 0; j < spawnBatch; j++) {
-        const angle = Math.random() * Math.PI * 2;
-        const r = Math.random() * (activeZone.radius - 50);
-        const gx = activeZone.x + Math.cos(angle) * r;
-        const gy = activeZone.y + Math.sin(angle) * r;
+      const currentZoneGhosts = state.ghosts.filter(g => g.parentZoneId === sz.id).length;
+      const remainingToSpawn = sz.requiredKills - sz.currentKills - currentZoneGhosts;
 
-        const dummyPath = [];
-        for (let k = 0; k < 5000; k++) dummyPath.push([gx, gy]);
+      if (remainingToSpawn > 0 && currentZoneGhosts < 10) {
+        const spawnBatch = Math.min(5, remainingToSpawn);
+        for (let j = 0; j < spawnBatch; j++) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.random() * (sz.radius - 50);
+          const gx = sz.x + Math.cos(angle) * r;
+          const gy = sz.y + Math.sin(angle) * r;
 
-        state.ghosts.push({
-          record: dummyPath,
-          speedRate: 1,
-          timer: 0,
-          x: gx,
-          y: gy,
-          radius: 15,
-          hp: 1 + Math.floor(state.currentLevel / 3), // HP tăng nhẹ theo LV
-          isDummy: true,
-          parentZoneId: activeZone.id,
-          historyPath: [],
-          lastShot: state.frameCount + Math.random() * 60
-        });
+          state.ghosts.push({
+            record: [],
+            speedRate: 1,
+            timer: 0,
+            x: gx,
+            y: gy,
+            radius: 15,
+            hp: 1 + Math.floor(state.currentLevel / 3),
+            isDummy: true,
+            parentZoneId: sz.id,
+            historyPath: [],
+            isStunned: 0,
+            lastShot: state.frameCount + Math.random() * 60
+          });
+        }
       }
-    }
+    });
   }
 
   let activeGhosts = 0;
