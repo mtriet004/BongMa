@@ -8,7 +8,8 @@ import {
   BOSS_FRAGMENT_DROP_RATE,
   BOSS_ARENA_REWARDS,
 } from "../config.js";
-
+import { initPuzzle } from "../game/puzzle_manager.js";
+import { initMapTheme } from "../game/mapTheme.js";
 import { saveGame, dist } from "../utils.js";
 import { UI, updateHealthUI, updateXPUI, generateCards } from "../ui.js";
 import { generateDummy } from "../entities.js";
@@ -78,7 +79,7 @@ export function initGame(isNextLevel = false) {
       state.pastRuns.push(state.currentRunRecord);
     }
   }
-
+  state.pendingBossType = state.selectedMap;
   initSkills();
   resetGlitchState();
   if (state.player.experience == null) state.player.experience = 0;
@@ -139,7 +140,9 @@ export function initGame(isNextLevel = false) {
   // Boss không còn được khởi tạo tự động - sẽ spawn khi player bước vào cổng portal
 
   // --- INITIALIZE SWARM ZONES ---
-  const shouldRegenZones = state.swarmZones.length === 0 || state.swarmZones.every(sz => sz.isCompleted);
+  const shouldRegenZones =
+    state.swarmZones.length === 0 ||
+    state.swarmZones.every((sz) => sz.isCompleted);
 
   if (shouldRegenZones) {
     state.swarmZones = [];
@@ -175,7 +178,7 @@ export function initGame(isNextLevel = false) {
           currentKills: 0,
           isCompleted: false,
           active: false,
-          spawnedLocalGhosts: false
+          spawnedLocalGhosts: false,
         });
       }
     }
@@ -193,54 +196,67 @@ export function initGame(isNextLevel = false) {
       spawnCapturePoint();
     }
 
-    // --- KHỞI TẠO PUZZLE ZONE ---
-    state.puzzleZone = null;
+    // // --- KHỞI TẠO PUZZLE ZONE ---
+    // state.puzzleZone = null;
+    // state.stagePortal = null;
+    // const numRunes = 4;
+    // const runePositions = [];
+    // for (let i = 0; i < numRunes; i++) {
+    //   let rx,
+    //     ry,
+    //     attempts = 0;
+    //   do {
+    //     rx = 600 + Math.random() * (state.world.width - 1200);
+    //     ry = 600 + Math.random() * (state.world.height - 1200);
+    //     attempts++;
+    //   } while (
+    //     attempts < 50 &&
+    //     runePositions.some((p) => dist(rx, ry, p.x, p.y) < 500)
+    //   );
+    //   runePositions.push({ x: rx, y: ry });
+    // }
+    // // Gán ký hiệu A/B/C/D cho từng rune (vị trí cố định), thứ tự kích hoạt được xáo ngẫu nhiên
+    // const runeSymbols = ["A", "B", "C", "D"];
+    // const stepOrder = [1, 2, 3, 4].sort(() => Math.random() - 0.5); // thứ tự kích hoạt ngẫu nhiên
+    // const symbolByStep = {}; // step → symbol
+    // stepOrder.forEach((step, idx) => {
+    //   symbolByStep[step] = runeSymbols[idx];
+    // });
+    // const orderDisplay = [1, 2, 3, 4].map((s) => symbolByStep[s]).join(" → "); // "B → D → A → C"
+
+    // // Obelisk gợi ý ở trung tâm bản đồ (cách player lúc spawn)
+    // let clueX, clueY;
+    // let clueAttempts = 0;
+    // do {
+    //   clueX = 800 + Math.random() * (state.world.width - 1600);
+    //   clueY = 800 + Math.random() * (state.world.height - 1600);
+    //   clueAttempts++;
+    // } while (
+    //   clueAttempts < 50 &&
+    //   dist(clueX, clueY, state.player?.x || 400, state.player?.y || 500) < 800
+    // );
+
+    // state.puzzleZone = {
+    //   runes: runePositions.map((pos, idx) => ({
+    //     x: pos.x,
+    //     y: pos.y,
+    //     symbol: runeSymbols[idx], // ký hiệu hiển thị (A/B/C/D)
+    //     step: stepOrder[idx], // thứ tự kích hoạt nội bộ
+    //     activated: false,
+    //     runeState: "idle", // "idle" | "pending" | "activated"
+    //   })),
+    //   currentStep: 1,
+    //   solved: false,
+    //   clueX,
+    //   clueY,
+    //   clueRevealed: false,
+    //   orderDisplay, // "B → D → A → C" — thứ tự đúng
+    // };
+    // ===== NEW PUZZLE SYSTEM =====
+    state.puzzleZone = null; // giữ lại nếu code khác còn dùng (tạm thời)
     state.stagePortal = null;
-    const numRunes = 4;
-    const runePositions = [];
-    for (let i = 0; i < numRunes; i++) {
-      let rx, ry, attempts = 0;
-      do {
-        rx = 600 + Math.random() * (state.world.width - 1200);
-        ry = 600 + Math.random() * (state.world.height - 1200);
-        attempts++;
-      } while (
-        attempts < 50 &&
-        runePositions.some(p => dist(rx, ry, p.x, p.y) < 500)
-      );
-      runePositions.push({ x: rx, y: ry });
-    }
-    // Gán ký hiệu A/B/C/D cho từng rune (vị trí cố định), thứ tự kích hoạt được xáo ngẫu nhiên
-    const runeSymbols = ["A", "B", "C", "D"];
-    const stepOrder = [1, 2, 3, 4].sort(() => Math.random() - 0.5); // thứ tự kích hoạt ngẫu nhiên
-    const symbolByStep = {}; // step → symbol
-    stepOrder.forEach((step, idx) => { symbolByStep[step] = runeSymbols[idx]; });
-    const orderDisplay = [1, 2, 3, 4].map(s => symbolByStep[s]).join(" → "); // "B → D → A → C"
 
-    // Obelisk gợi ý ở trung tâm bản đồ (cách player lúc spawn)
-    let clueX, clueY;
-    let clueAttempts = 0;
-    do {
-      clueX = 800 + Math.random() * (state.world.width - 1600);
-      clueY = 800 + Math.random() * (state.world.height - 1600);
-      clueAttempts++;
-    } while (clueAttempts < 50 && dist(clueX, clueY, state.player?.x || 400, state.player?.y || 500) < 800);
-
-    state.puzzleZone = {
-      runes: runePositions.map((pos, idx) => ({
-        x: pos.x, y: pos.y,
-        symbol: runeSymbols[idx],  // ký hiệu hiển thị (A/B/C/D)
-        step: stepOrder[idx],      // thứ tự kích hoạt nội bộ
-        activated: false,
-        runeState: "idle",         // "idle" | "pending" | "activated"
-      })),
-      currentStep: 1,
-      solved: false,
-      clueX,
-      clueY,
-      clueRevealed: false,
-      orderDisplay,  // "B → D → A → C" — thứ tự đúng
-    };
+    initPuzzle();
   } else {
     // Màn boss: xoá sạch mọi thực thể thuộc map thường
     state.crates = [];
@@ -255,6 +271,9 @@ export function initGame(isNextLevel = false) {
   UI.timer.innerText = state.isBossLevel ? "BOSS" : "DẸP SẠCH SWARM ZONE";
   UI.level.innerText = `Màn: ${state.currentLevel}`;
   UI.ghosts.innerText = `Quái: ${state.ghosts.length}`;
+  if (!state.isBossLevel) {
+    initMapTheme();
+  }
 }
 
 export function changeState(newGameState, gameLoopFn) {
@@ -342,10 +361,12 @@ export async function onCardSelected(gameLoopFn) {
   saveGame(state, GHOST_DATA_KEY);
   persistState();
   if (state.upgradeFromXP) {
-
     if (state.player.experience >= state.player.experienceToLevel) {
       state.player.experience -= state.player.experienceToLevel;
-      state.player.experienceToLevel = Math.max(50, Math.floor(state.player.experienceToLevel * 1.15));
+      state.player.experienceToLevel = Math.max(
+        50,
+        Math.floor(state.player.experienceToLevel * 1.15),
+      );
       updateXPUI();
       changeState("UPGRADE", gameLoopFn);
       return;
@@ -365,24 +386,40 @@ export async function startGame(gameLoopFn) {
 }
 
 export function startBossFight() {
-  const bossTypes = Object.keys(BOSS_TYPES);
-  const bossIndex = (state.currentLevel - 1) % bossTypes.length;
-  const selectedBossType = bossTypes[bossIndex];
+  let selectedBossType;
+
+  // 🎯 Boss Arena
+  if (state.bossArenaMode) {
+    selectedBossType = state.bossArenaType;
+  }
+
+  // 🎮 Map thường
+  else {
+    selectedBossType = state.pendingBossType || "fire";
+  }
 
   state.boss = createBoss(selectedBossType);
   state.currentBossType = selectedBossType;
   state.isBossLevel = true;
-  state.stagePortal = null; // Ẩn cổng
-  state.ghosts = []; // Xoá quái thường
-  state.bullets = []; // Xoá đạn
+  state.stagePortal = null;
+  state.ghosts = [];
+  state.bullets = [];
 
   UI.bossUi.style.display = "block";
   UI.bossName.innerText = state.boss.name;
   UI.bossHp.style.width = "100%";
 
   state.screenShake = { x: 0, y: 0, timer: 45, intensity: 18 };
+
   if (!state.floatingTexts) state.floatingTexts = [];
-  state.floatingTexts.push({ x: state.player.x, y: state.player.y - 120, text: `⚠ ${state.boss.name} XUẤT HIỆN! ⚠`, color: "#ff3300", life: 200, opacity: 1 });
+  state.floatingTexts.push({
+    x: state.player.x,
+    y: state.player.y - 120,
+    text: `⚠ ${state.boss.name} XUẤT HIỆN! ⚠`,
+    color: "#ff3300",
+    life: 200,
+    opacity: 1,
+  });
 
   playBGM(`BOSS_${state.currentLevel}`);
 }

@@ -189,10 +189,18 @@ export const state = {
   items: [], // Các vật phẩm nhặt được (Crystal thưởng)
 
   // ===== Hệ thống điều kiện qua màn =====
-  puzzleZone: null,  // { runes: [{x, y, step, activated}], currentStep: 1, solved: false }
+  puzzleZone: null, // { runes: [{x, y, step, activated}], currentStep: 1, solved: false }
   stagePortal: null, // { x, y, radius, active, pulse }
+  maps: [
+    { id: "fire", unlocked: true },
+    { id: "ice", unlocked: false },
+    { id: "earth", unlocked: false },
+    { id: "wind", unlocked: false },
+    { id: "thunder", unlocked: false },
+  ],
+  selectedMap: "fire",
+  pendingBossType: null,      // boss sẽ spawn sau
 };
-
 
 export function resetGlitchState() {
   state.glitch = {

@@ -1,9 +1,20 @@
 import { state } from "./state.js";
 import { playSound } from "./game/audio.js";
-import { UI } from "./ui.js";
+import { UI, renderMapSelect } from "./ui.js";
 import { setupInput } from "./input.js";
-import { initAuth, syncRemoteState, isAuthenticated, showLoginScreen } from "./auth.js";
-import { changeState, startGame, nextStage, openBossArena, handleBossArenaReward } from "./game/flow.js";
+import {
+  initAuth,
+  syncRemoteState,
+  isAuthenticated,
+  showLoginScreen,
+} from "./auth.js";
+import {
+  changeState,
+  startGame,
+  nextStage,
+  openBossArena,
+  handleBossArenaReward,
+} from "./game/flow.js";
 import { update } from "./game/update.js";
 import { draw } from "./game/draw.js";
 import { openShop } from "./characters/shop.js";
@@ -60,25 +71,42 @@ initAuth(async () => {
   changeStateBound("MENU");
 });
 
-UI.btnStart.onclick = () => startGame(gameLoop);
+// UI.btnStart.onclick = () => startGame(gameLoop);
+const btnStart = document.getElementById("btn-start");
 
-// Cửa hàng và Chọn nhân vật
-setupMenuButtons(openShop, (newState) => {
-  if (isAuthenticated()) {
-    changeStateBound(newState);
-  } else {
-    showLoginScreen();
-  }
-});
+btnStart.onclick = () => {
+  console.log("CLICK START");
 
+  document.getElementById("screen-main").classList.add("hidden");
+  document.getElementById("screen-map-select").classList.remove("hidden");
+
+  renderMapSelect(() => {
+    console.log("MAP SELECTED");
+
+    document.getElementById("screen-map-select").classList.add("hidden");
+    startGame(gameLoop);
+  });
+};
+const btnMapSelect = document.getElementById("btn-map-select");
+
+if (btnMapSelect) {
+  btnMapSelect.onclick = () => {
+    document.getElementById("screen-main").classList.add("hidden");
+    document.getElementById("screen-map-select").classList.remove("hidden");
+
+    renderMapSelect(() => {
+      startGame(gameLoop);
+    });
+  };
+}
 // Boss Arena button setup
 const arenaBtn = document.getElementById("btn-boss-arena");
 if (arenaBtn) {
   arenaBtn.onclick = () => {
     if (isAuthenticated()) {
-        openBossArena(changeStateBound, gameLoop);
+      openBossArena(changeStateBound, gameLoop);
     } else {
-        showLoginScreen();
+      showLoginScreen();
     }
   };
 }
@@ -90,12 +118,19 @@ if (arenaBack) {
     document.getElementById("screen-main").classList.remove("hidden");
   };
 }
+const mapBack = document.getElementById("btn-map-back");
+if (mapBack) {
+  mapBack.onclick = () => {
+    document.getElementById("screen-map-select").classList.add("hidden");
+    document.getElementById("screen-main").classList.remove("hidden");
+  };
+}
 
 // Chờ 1 chút để Auth init xử lý. Nếu có token sẽ tự hiện menu, nếu không sẽ hiện Login.
 if (isAuthenticated()) {
-    changeStateBound("MENU");
+  changeStateBound("MENU");
 } else {
-    showLoginScreen();
+  showLoginScreen();
 }
 
 export { evolve };

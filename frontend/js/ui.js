@@ -39,8 +39,9 @@ export function updateUpgradeUI() {
 
     const isEvolved = state.evolutions[upgrade];
 
-    upgradeDiv.innerText = `${upgrade}: ${state.upgrades[upgrade]
-      } / 5 ${isEvolved ? "(Evolved)" : ""}`;
+    upgradeDiv.innerText = `${upgrade}: ${
+      state.upgrades[upgrade]
+    } / 5 ${isEvolved ? "(Evolved)" : ""}`;
 
     upgradeContainer.appendChild(upgradeDiv);
   });
@@ -129,8 +130,9 @@ export function generateCards(pool, container, isGold, onSelectCallback) {
     const isEvolutionCard = upg.isEvolution;
     const isEvolved = state.evolutions[upg.id];
 
-    div.className = `card ${isEvolutionCard ? "gold evolution-card" : ""
-      } ${isEvolved ? "evolved-card" : ""}`;
+    div.className = `card ${
+      isEvolutionCard ? "gold evolution-card" : ""
+    } ${isEvolved ? "evolved-card" : ""}`;
 
     div.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p>`;
 
@@ -231,7 +233,8 @@ export function updateBossUI() {
 
   let phase;
   if (boss.phaseCount === 5) {
-    phase = ratio > 0.8 ? 0 : ratio > 0.6 ? 1 : ratio > 0.4 ? 2 : ratio > 0.2 ? 3 : 4;
+    phase =
+      ratio > 0.8 ? 0 : ratio > 0.6 ? 1 : ratio > 0.4 ? 2 : ratio > 0.2 ? 3 : 4;
   } else if (boss.phaseCount === 3) {
     phase = ratio > 0.66 ? 0 : ratio > 0.33 ? 1 : 2;
   } else {
@@ -281,3 +284,30 @@ export function updateTradingUI() {
   // Handled by new shop system
 }
 
+export function renderMapSelect(onSelect) {
+  const container = document.getElementById("map-list");
+  container.innerHTML = "";
+
+  state.maps.forEach((map) => {
+    const btn = document.createElement("button");
+
+    btn.innerText = map.id.toUpperCase();
+    btn.style.margin = "8px";
+
+    if (!map.unlocked) {
+      btn.disabled = true;
+      btn.innerText += " 🔒";
+    }
+
+    btn.onclick = () => {
+      state.selectedMap = map.id;
+
+      // 🔥 vào game luôn
+      document.getElementById("screen-map-select").classList.add("hidden");
+
+      onSelect(); // startGame()
+    };
+
+    container.appendChild(btn);
+  });
+}

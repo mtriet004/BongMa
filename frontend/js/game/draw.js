@@ -1,5 +1,6 @@
 import { state } from "../state.js";
 import { dist } from "../utils.js";
+import { drawPuzzle, getPuzzleMinimapMarkers } from "./puzzle_manager.js";
 import { drawActiveCharacter } from "../characters/characterRegistry.js";
 
 const SCREEN_SHAKE_TYPES = {
@@ -49,34 +50,37 @@ function getShakeOffset() {
   return (SCREEN_SHAKE_TYPES[type] || SCREEN_SHAKE_TYPES.earth)();
 }
 
-function drawLavaFloor(ctx, canvas) {
-  // SỬA ĐỔI: Làm nền mặt đất tối đi (dung nham nguội), chỉ chừa lại các kẽ nứt nham thạch
-  // Giúp màn hình không bị đỏ chót và dễ nhìn hơn rất nhiều.
+function drawLavaFloor(ctx) {
   const pulse = (Math.sin(state.frameCount * 0.05) + 1) * 0.5;
+
   ctx.save();
 
-  // Background glow (Tối đen, ám đỏ cực nhẹ)
-  ctx.fillStyle = `rgba(15, 5, 0, 0.9)`;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // 🌑 nền toàn map (WORLD SPACE)
+  ctx.fillStyle = "rgba(15, 5, 0, 0.9)";
+  ctx.fillRect(0, 0, state.world.width, state.world.height);
 
-  // Glowing Lava Grid (Chỉ sáng ở đường kẻ)
+  // 🔥 grid lava toàn map
   ctx.strokeStyle = `rgba(255, 60, 0, ${0.2 + pulse * 0.4})`;
   ctx.lineWidth = 3;
   ctx.shadowBlur = 10;
   ctx.shadowColor = "#ff2200";
 
-  for (let i = 0; i < canvas.width; i += 40) {
+  const gridSize = 80;
+
+  for (let x = 0; x <= state.world.width; x += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i, canvas.height);
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, state.world.height);
     ctx.stroke();
   }
-  for (let i = 0; i < canvas.height; i += 40) {
+
+  for (let y = 0; y <= state.world.height; y += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(0, i);
-    ctx.lineTo(canvas.width, i);
+    ctx.moveTo(0, y);
+    ctx.lineTo(state.world.width, y);
     ctx.stroke();
   }
+
   ctx.restore();
 }
 
@@ -101,56 +105,67 @@ function drawBurnVignette(ctx, canvas) {
 }
 
 export function draw(ctx, canvas) {
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
   // Dịch chuyển bối cảnh ngược chiều camera để tạo cảm giác di chuyển
   ctx.translate(-state.camera.x, -state.camera.y);
-
+  if (state.currentMapTheme === "fire") {
+    drawLavaFloor(ctx, canvas);
+  } else {
+    drawMapGrid(ctx);
+  }
   // Vẽ lưới background (Grid) để dễ nhận biết người chơi đang di chuyển trong map to
-  drawMapGrid(ctx);
+  //drawMapGrid(ctx);
   // Vẽ vết cháy vĩnh viễn (nằm dưới cùng)
   drawPermanentScars(ctx);
 
   // --- DRAW SWARM ZONES (chỉ map thường) ---
-  if (!state.isBossLevel && !state.bossArenaMode) state.swarmZones.forEach(sz => {
-    if (sz.isCompleted) return;
-    ctx.save();
-    const pulse = Math.sin(state.frameCount * 0.1) * 20;
-    const opacity = sz.active ? 0.3 : 0.15;
+  if (!state.isBossLevel && !state.bossArenaMode)
+    state.swarmZones.forEach((sz) => {
+      if (sz.isCompleted) return;
+      ctx.save();
+      const pulse = Math.sin(state.frameCount * 0.1) * 20;
+      const opacity = sz.active ? 0.3 : 0.15;
 
-    // Vẽ vùng tròn mờ
-    const grad = ctx.createRadialGradient(sz.x, sz.y, 0, sz.x, sz.y, sz.radius + pulse);
-    grad.addColorStop(0, `rgba(255, 100, 0, ${opacity})`);
-    grad.addColorStop(1, "rgba(255, 50, 0, 0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(sz.x, sz.y, sz.radius + pulse, 0, Math.PI * 2);
-    ctx.fill();
+      // Vẽ vùng tròn mờ
+      const grad = ctx.createRadialGradient(
+        sz.x,
+        sz.y,
+        0,
+        sz.x,
+        sz.y,
+        sz.radius + pulse,
+      );
+      grad.addColorStop(0, `rgba(255, 100, 0, ${opacity})`);
+      grad.addColorStop(1, "rgba(255, 50, 0, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(sz.x, sz.y, sz.radius + pulse, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Vẽ viền đứt đoạn
-    ctx.strokeStyle = `rgba(255, 150, 0, ${opacity + 0.3})`;
-    ctx.lineWidth = 4;
-    ctx.setLineDash([15, 10]);
-    ctx.lineDashOffset = -state.frameCount * 0.5;
-    ctx.beginPath();
-    ctx.arc(sz.x, sz.y, sz.radius, 0, Math.PI * 2);
-    ctx.stroke();
+      // Vẽ viền đứt đoạn
+      ctx.strokeStyle = `rgba(255, 150, 0, ${opacity + 0.3})`;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([15, 10]);
+      ctx.lineDashOffset = -state.frameCount * 0.5;
+      ctx.beginPath();
+      ctx.arc(sz.x, sz.y, sz.radius, 0, Math.PI * 2);
+      ctx.stroke();
 
-    // Vẽ text tiêu đề
-    ctx.fillStyle = "#ffcc00";
-    ctx.font = "bold 24px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("⚠️ SWARM ZONE ⚠️", sz.x, sz.y - sz.radius - 20);
-    ctx.restore();
-  });
-
+      // Vẽ text tiêu đề
+      ctx.fillStyle = "#ffcc00";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("⚠️ SWARM ZONE ⚠️", sz.x, sz.y - sz.radius - 20);
+      ctx.restore();
+    });
   if (!state.isBossLevel && !state.bossArenaMode) {
     drawCrates(ctx);
+    drawPuzzle(ctx);
     drawCapturePoints(ctx);
     drawItems(ctx);
-    drawPuzzleZone(ctx);
+    //drawPuzzleZone(ctx);
     drawStagePortal(ctx);
   }
   drawSatellite(ctx);
@@ -162,16 +177,6 @@ export function draw(ctx, canvas) {
   const char = player?.characterId;
 
   if (!state.particles) state.particles = [];
-
-  if (
-    state.globalHazard &&
-    state.globalHazard.active &&
-    state.globalHazard.type === "fire"
-  ) {
-    drawLavaFloor(ctx, canvas);
-  } else {
-    drawMapGrid(ctx);
-  }
 
   const shake = getShakeOffset();
   ctx.save();
@@ -496,7 +501,13 @@ export function draw(ctx, canvas) {
       const alpha = ind.life / ind.maxLife;
       ctx.save();
       ctx.beginPath();
-      ctx.arc(ind.x, ind.y, ind.radius * (1 + (1 - alpha) * 0.15), 0, Math.PI * 2);
+      ctx.arc(
+        ind.x,
+        ind.y,
+        ind.radius * (1 + (1 - alpha) * 0.15),
+        0,
+        Math.PI * 2,
+      );
       ctx.strokeStyle = ind.color || "rgba(255,255,255,0.8)";
       ctx.lineWidth = 2;
       ctx.globalAlpha = alpha * 0.8;
@@ -515,27 +526,6 @@ export function draw(ctx, canvas) {
     }
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   if (state.explosions) {
     for (let i = state.explosions.length - 1; i >= 0; i--) {
       let exp = state.explosions[i];
@@ -549,7 +539,6 @@ export function draw(ctx, canvas) {
       if (exp.life <= 0) state.explosions.splice(i, 1);
     }
   }
-
 
   if (boss && !boss.entityPhase) {
     let phase;
@@ -647,7 +636,7 @@ export function draw(ctx, canvas) {
         g.historyPath[g.historyPath.length - 2].x,
         g.historyPath[g.historyPath.length - 2].y,
       ) >
-      8 * g.speedRate;
+        8 * g.speedRate;
 
     if (g.historyPath && g.historyPath.length > 0 && g.isStunned <= 0) {
       ctx.beginPath();
@@ -925,7 +914,6 @@ export function draw(ctx, canvas) {
       ctx.shadowBlur = 0;
     }
   }
-
 
   if (state.engineerTurrets) {
     state.engineerTurrets.forEach((t) => {
@@ -1505,7 +1493,8 @@ export function draw(ctx, canvas) {
 
   // --- HUD & Vignette ---
   drawHUD(ctx, canvas);
-  if (!state.isBossLevel && !state.bossArenaMode) drawStageConditionsHUD(ctx, canvas);
+  if (!state.isBossLevel && !state.bossArenaMode)
+    drawStageConditionsHUD(ctx, canvas);
 
   if (state.playerStatus.burnTimer > 0) {
     drawFireVignette(ctx, canvas);
@@ -1632,8 +1621,12 @@ function drawHUD(ctx, canvas) {
 
   // --- Swarm Zone HUD ---
   if (!state.isBossLevel && state.swarmZones && state.swarmZones.length > 0) {
-    const activeZone = state.swarmZones.find(sz => sz.active && !sz.isCompleted);
-    const completedCount = state.swarmZones.filter(sz => sz.isCompleted).length;
+    const activeZone = state.swarmZones.find(
+      (sz) => sz.active && !sz.isCompleted,
+    );
+    const completedCount = state.swarmZones.filter(
+      (sz) => sz.isCompleted,
+    ).length;
     const totalZones = state.swarmZones.length;
 
     // HUD lớn ở dưới khi đang trong zone active
@@ -1654,7 +1647,11 @@ function drawHUD(ctx, canvas) {
       ctx.fillStyle = "white";
       ctx.font = "bold 16px Arial";
       ctx.textAlign = "center";
-      ctx.fillText(`⚔️ TIÊU DIỆT: ${activeZone.currentKills}/${activeZone.requiredKills}`, hudX, hudY + 26);
+      ctx.fillText(
+        `⚔️ TIÊU DIỆT: ${activeZone.currentKills}/${activeZone.requiredKills}`,
+        hudX,
+        hudY + 26,
+      );
     }
   }
 }
@@ -1704,7 +1701,7 @@ function drawMinimap(ctx, canvas) {
 
   // Hàm phụ: Vẽ chấm tròn
   const drawDot = (obj, color, size) => {
-    if (!obj || obj.hp <= 0 && obj !== state.player) return;
+    if (!obj || (obj.hp <= 0 && obj !== state.player)) return;
     const x = mmX + obj.x * scaleX;
     const y = mmY + obj.y * scaleY;
     ctx.fillStyle = color;
@@ -1714,7 +1711,7 @@ function drawMinimap(ctx, canvas) {
   };
 
   // 1. Kẻ thù (Chấm đỏ nhỏ)
-  state.ghosts.forEach(g => drawDot(g, "#ff4444", 2));
+  state.ghosts.forEach((g) => drawDot(g, "#ff4444", 2));
 
   // 2. Boss (Chấm tím/đỏ to có aura)
   if (state.boss && state.boss.hp > 0) {
@@ -1723,7 +1720,13 @@ function drawMinimap(ctx, canvas) {
     ctx.strokeStyle = state.boss.color || "#ff00ff";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(mmX + state.boss.x * scaleX, mmY + state.boss.y * scaleY, 7, 0, Math.PI * 2);
+    ctx.arc(
+      mmX + state.boss.x * scaleX,
+      mmY + state.boss.y * scaleY,
+      7,
+      0,
+      Math.PI * 2,
+    );
     ctx.stroke();
   }
 
@@ -1733,22 +1736,23 @@ function drawMinimap(ctx, canvas) {
   }
 
   // 3.5. Swarm Zones (chỉ map thường)
-  if (!state.isBossLevel && !state.bossArenaMode) state.swarmZones.forEach(sz => {
-    if (sz.isCompleted) return;
-    const color = (state.frameCount % 40 < 20) ? "#ffaa00" : "#aa5500";
-    const x = mmX + sz.x * scaleX;
-    const y = mmY + sz.y * scaleY;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fill();
+  if (!state.isBossLevel && !state.bossArenaMode)
+    state.swarmZones.forEach((sz) => {
+      if (sz.isCompleted) return;
+      const color = state.frameCount % 40 < 20 ? "#ffaa00" : "#aa5500";
+      const x = mmX + sz.x * scaleX;
+      const y = mmY + sz.y * scaleY;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
 
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.stroke();
-  });
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    });
 
   // 4. Khung Camera (Hiển thị phần map người chơi đang nhìn thấy)
   ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
@@ -1757,12 +1761,12 @@ function drawMinimap(ctx, canvas) {
     mmX + state.camera.x * scaleX,
     mmY + state.camera.y * scaleY,
     state.camera.width * scaleX,
-    state.camera.height * scaleY
+    state.camera.height * scaleY,
   );
 
   // 5. Thùng vật phẩm (chỉ map thường)
   if (!state.isBossLevel && !state.bossArenaMode && state.crates) {
-    state.crates.forEach(c => {
+    state.crates.forEach((c) => {
       const x = mmX + c.x * scaleX;
       const y = mmY + c.y * scaleY;
       ctx.fillStyle = "#8B4513";
@@ -1774,7 +1778,7 @@ function drawMinimap(ctx, canvas) {
 
   // 6. Điểm chiếm đóng (chỉ map thường)
   if (!state.isBossLevel && !state.bossArenaMode && state.capturePoints) {
-    state.capturePoints.forEach(cp => {
+    state.capturePoints.forEach((cp) => {
       if (cp.state === "completed") return;
       const x = mmX + cp.x * scaleX;
       const y = mmY + cp.y * scaleY;
@@ -1809,48 +1813,60 @@ function drawMinimap(ctx, canvas) {
     });
   }
 
-  // 7. Puzzle runes + obelisk trên minimap
-  if (!state.isBossLevel && !state.bossArenaMode && state.puzzleZone && !state.puzzleZone.solved) {
-    const pz = state.puzzleZone;
-    // Obelisk
-    const ox = mmX + pz.clueX * scaleX;
-    const oy = mmY + pz.clueY * scaleY;
-    // Viền ngoài
-    ctx.fillStyle = "rgba(0,0,0,0.7)";
-    ctx.fillRect(ox - 6, oy - 9, 12, 18);
-    // Thân obelisk
-    ctx.fillStyle = pz.clueRevealed ? "#FFD700" : "#aaaaaa";
-    ctx.fillRect(ox - 4, oy - 7, 8, 14);
-    // Ký hiệu
-    ctx.fillStyle = pz.clueRevealed ? "#000" : "#fff";
-    ctx.font = "bold 8px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(pz.clueRevealed ? "!" : "?", ox, oy + 3.5);
-    // Runes
-    pz.runes.forEach(rune => {
-      if (rune.activated) return;
-      const rx = mmX + rune.x * scaleX;
-      const ry = mmY + rune.y * scaleY;
-      const isPending = rune.runeState === "pending";
-      const fillColor = isPending ? "#ff9900" : (rune.step === pz.currentStep ? "#ffff00" : "#cc44ff");
-      // Viền ngoài đen cho dễ nhìn
-      ctx.beginPath();
-      ctx.arc(rx, ry, 8, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0,0,0,0.7)";
-      ctx.fill();
-      // Vòng tròn màu
-      ctx.beginPath();
-      ctx.arc(rx, ry, 6, 0, Math.PI * 2);
-      ctx.fillStyle = fillColor;
-      ctx.fill();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      // Ký hiệu
-      ctx.fillStyle = "#000";
-      ctx.font = "bold 8px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(rune.symbol, rx, ry + 3);
+  // 7. Puzzle minimap (NEW SYSTEM)
+  if (!state.isBossLevel && !state.bossArenaMode) {
+    const markers = getPuzzleMinimapMarkers();
+
+    markers.forEach((m) => {
+      const mx = mmX + m.x * scaleX;
+      const my = mmY + m.y * scaleY;
+
+      // --- OBELISK ---
+      if (m.type === "clue") {
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(mx - 6, my - 9, 12, 18);
+
+        ctx.fillStyle = m.revealed ? "#FFD700" : "#aaaaaa";
+        ctx.fillRect(mx - 4, my - 7, 8, 14);
+
+        ctx.fillStyle = m.revealed ? "#000" : "#fff";
+        ctx.font = "bold 8px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(m.revealed ? "!" : "?", mx, my + 3.5);
+      }
+
+      // --- RUNE ---
+      if (m.type === "rune") {
+        const isPending = m.state === "pending";
+
+        const fillColor = isPending
+          ? "#ff9900"
+          : m.isNext
+            ? "#ffff00"
+            : "#cc44ff";
+
+        // nền đen
+        ctx.beginPath();
+        ctx.arc(mx, my, 8, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fill();
+
+        // vòng màu
+        ctx.beginPath();
+        ctx.arc(mx, my, 6, 0, Math.PI * 2);
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // symbol
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 8px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(m.symbol, mx, my + 3);
+      }
     });
   }
 
@@ -1872,9 +1888,8 @@ function drawMinimap(ctx, canvas) {
   }
 }
 
-
 function drawFloatingTexts(ctx) {
-  state.floatingTexts.forEach(t => {
+  state.floatingTexts.forEach((t) => {
     ctx.save();
     ctx.fillStyle = t.color || "#fff";
     ctx.font = `bold ${t.size || 20}px Arial`;
@@ -1962,7 +1977,14 @@ function drawCapturePoints(ctx) {
 
       // 1a. VùNG NăNG LƯỢNG NỀN (Vibrant Floor)
       ctx.globalCompositeOperation = "lighter";
-      const floorGrad = ctx.createRadialGradient(cp.x, cp.y, 0, cp.x, cp.y, cp.radius);
+      const floorGrad = ctx.createRadialGradient(
+        cp.x,
+        cp.y,
+        0,
+        cp.x,
+        cp.y,
+        cp.radius,
+      );
       floorGrad.addColorStop(0, `rgba(255, 180, 0, ${opacity * 0.8})`);
       floorGrad.addColorStop(0.5, `rgba(255, 100, 0, ${opacity * 0.4})`);
       floorGrad.addColorStop(1, "rgba(255, 50, 0, 0)");
@@ -1983,8 +2005,14 @@ function drawCapturePoints(ctx) {
       for (let i = 0; i < segments; i++) {
         const a1 = (i / segments) * Math.PI * 2;
         const a2 = ((i + 1) / segments) * Math.PI * 2;
-        ctx.moveTo(Math.cos(a1) * (cp.radius * 0.9), Math.sin(a1) * (cp.radius * 0.9));
-        ctx.lineTo(Math.cos(a2) * (cp.radius * 0.9), Math.sin(a2) * (cp.radius * 0.9));
+        ctx.moveTo(
+          Math.cos(a1) * (cp.radius * 0.9),
+          Math.sin(a1) * (cp.radius * 0.9),
+        );
+        ctx.lineTo(
+          Math.cos(a2) * (cp.radius * 0.9),
+          Math.sin(a2) * (cp.radius * 0.9),
+        );
       }
       ctx.stroke();
       ctx.restore();
@@ -2001,7 +2029,11 @@ function drawCapturePoints(ctx) {
       for (let i = 0; i < runeCount; i++) {
         const angle = (i / runeCount) * Math.PI * 2;
         const runes = ["᚛", "᚜", "ᚣ", "ᚤ", "ᚥ", "ᚦ"];
-        ctx.fillText(runes[i % runes.length], Math.cos(angle) * (cp.radius - 40), Math.sin(angle) * (cp.radius - 40));
+        ctx.fillText(
+          runes[i % runes.length],
+          Math.cos(angle) * (cp.radius - 40),
+          Math.sin(angle) * (cp.radius - 40),
+        );
       }
       ctx.restore();
 
@@ -2024,16 +2056,29 @@ function drawCapturePoints(ctx) {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       const beamW = 10 + Math.sin(state.frameCount * 0.2) * 5;
-      const beamGrad = ctx.createLinearGradient(cp.x - beamW, 0, cp.x + beamW, 0);
+      const beamGrad = ctx.createLinearGradient(
+        cp.x - beamW,
+        0,
+        cp.x + beamW,
+        0,
+      );
       beamGrad.addColorStop(0, "rgba(255, 100, 0, 0)");
-      beamGrad.addColorStop(0.5, `rgba(255, 255, 255, ${0.4 + progressRatio * 0.6})`);
+      beamGrad.addColorStop(
+        0.5,
+        `rgba(255, 255, 255, ${0.4 + progressRatio * 0.6})`,
+      );
       beamGrad.addColorStop(1, "rgba(255, 100, 0, 0)");
       ctx.fillStyle = beamGrad;
       ctx.fillRect(cp.x - beamW / 2, cp.y - 1000, beamW, 1000); // Beam lên trời
       ctx.restore();
     }
 
-    const pillarGrad = ctx.createLinearGradient(cp.x - 25, cp.y, cp.x + 25, cp.y);
+    const pillarGrad = ctx.createLinearGradient(
+      cp.x - 25,
+      cp.y,
+      cp.x + 25,
+      cp.y,
+    );
     pillarGrad.addColorStop(0, "#111");
     pillarGrad.addColorStop(0.5, "#333");
     pillarGrad.addColorStop(1, "#111");
@@ -2046,13 +2091,22 @@ function drawCapturePoints(ctx) {
     ctx.fill();
 
     // Orb with Pulsing Core
-    const orbColor = cp.state === "charging" ? `hsl(${30 + progressRatio * 30}, 100%, 60%)` : "#444";
+    const orbColor =
+      cp.state === "charging"
+        ? `hsl(${30 + progressRatio * 30}, 100%, 60%)`
+        : "#444";
     ctx.save();
     ctx.shadowBlur = cp.state === "charging" ? 25 + pulse : 0;
     ctx.shadowColor = orbColor;
     ctx.fillStyle = orbColor;
     ctx.beginPath();
-    ctx.arc(cp.x, cp.y - 85, 18 + (cp.state === "charging" ? Math.sin(state.frameCount * 0.2) * 3 : 0), 0, Math.PI * 2);
+    ctx.arc(
+      cp.x,
+      cp.y - 85,
+      18 + (cp.state === "charging" ? Math.sin(state.frameCount * 0.2) * 3 : 0),
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
     ctx.restore();
 
@@ -2066,7 +2120,10 @@ function drawCapturePoints(ctx) {
       ctx.shadowColor = "red";
       ctx.beginPath();
       ctx.moveTo(cp.x, cp.y - 80);
-      ctx.lineTo(cp.x + Math.cos(cp.laserAngle) * cp.radius, cp.y + Math.sin(cp.laserAngle) * cp.radius);
+      ctx.lineTo(
+        cp.x + Math.cos(cp.laserAngle) * cp.radius,
+        cp.y + Math.sin(cp.laserAngle) * cp.radius,
+      );
       ctx.stroke();
 
       ctx.strokeStyle = "#fff";
@@ -2075,7 +2132,10 @@ function drawCapturePoints(ctx) {
       ctx.restore();
 
       if (state.frameCount - cp.lastPulseTime < 45) {
-        const sRatio = Math.max(0, Math.min(1, (state.frameCount - cp.lastPulseTime) / 45));
+        const sRatio = Math.max(
+          0,
+          Math.min(1, (state.frameCount - cp.lastPulseTime) / 45),
+        );
         ctx.strokeStyle = `rgba(255, 255, 255, ${1 - sRatio})`;
         ctx.lineWidth = 4 * (1 - sRatio);
         ctx.beginPath();
@@ -2090,20 +2150,23 @@ function drawCapturePoints(ctx) {
     const barH = 12;
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(cp.x - barW / 2 - 2, cp.y - 132, barW + 4, barH + 4, 6);
+    if (ctx.roundRect)
+      ctx.roundRect(cp.x - barW / 2 - 2, cp.y - 132, barW + 4, barH + 4, 6);
     else ctx.rect(cp.x - barW / 2 - 2, cp.y - 132, barW + 4, barH + 4);
     ctx.fill();
 
     ctx.fillStyle = "#ffaa00";
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(cp.x - barW / 2, cp.y - 130, barW * progressRatio, barH, 4);
+    if (ctx.roundRect)
+      ctx.roundRect(cp.x - barW / 2, cp.y - 130, barW * progressRatio, barH, 4);
     else ctx.rect(cp.x - barW / 2, cp.y - 130, barW * progressRatio, barH);
     ctx.fill();
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 18px Arial";
     ctx.textAlign = "center";
-    const label = cp.state === "guarding" ? "🛡️ DIỆT THỦ VỆ" : "⚡ ĐANG CHIẾM ĐỨNG...";
+    const label =
+      cp.state === "guarding" ? "🛡️ DIỆT THỦ VỆ" : "⚡ ĐANG CHIẾM ĐỨNG...";
     ctx.fillText(label, cp.x, cp.y - 145);
 
     ctx.restore();
@@ -2131,7 +2194,14 @@ function drawItems(ctx) {
   state.items.forEach((item) => {
     ctx.save();
     const pulse = Math.sin(state.frameCount * 0.1) * 5;
-    const grad = ctx.createRadialGradient(item.x, item.y, 0, item.x, item.y, item.radius + 20 + pulse);
+    const grad = ctx.createRadialGradient(
+      item.x,
+      item.y,
+      0,
+      item.x,
+      item.y,
+      item.radius + 20 + pulse,
+    );
     grad.addColorStop(0, "rgba(0, 255, 255, 0.4)");
     grad.addColorStop(1, "rgba(0, 255, 255, 0)");
     ctx.fillStyle = grad;
@@ -2185,7 +2255,14 @@ function drawGodMode(ctx) {
   const p = state.player;
   ctx.save();
   const pulse = Math.sin(state.frameCount * 0.2) * 10;
-  const grad = ctx.createRadialGradient(p.x, p.y, p.radius, p.x, p.y, p.radius + 40 + pulse);
+  const grad = ctx.createRadialGradient(
+    p.x,
+    p.y,
+    p.radius,
+    p.x,
+    p.y,
+    p.radius + 40 + pulse,
+  );
   grad.addColorStop(0, "rgba(255, 215, 0, 0.6)");
   grad.addColorStop(0.5, "rgba(255, 100, 0, 0.2)");
   grad.addColorStop(1, "rgba(255, 255, 255, 0)");
@@ -2204,7 +2281,8 @@ function drawPuzzleZone(ctx) {
   if (!pz || pz.solved) return;
 
   // Vẽ Obelisk Gợi Ý
-  const ox = pz.clueX, oy = pz.clueY;
+  const ox = pz.clueX,
+    oy = pz.clueY;
   ctx.save();
   const obeliskPulse = Math.sin(state.frameCount * 0.05) * 6;
   const obeliskColor = pz.clueRevealed ? "#FFD700" : "#888888";
@@ -2212,9 +2290,12 @@ function drawPuzzleZone(ctx) {
   ctx.shadowColor = obeliskColor;
   ctx.strokeStyle = obeliskColor;
   ctx.lineWidth = 3;
-  ctx.fillStyle = pz.clueRevealed ? "rgba(80,60,0,0.85)" : "rgba(30,30,30,0.85)";
+  ctx.fillStyle = pz.clueRevealed
+    ? "rgba(80,60,0,0.85)"
+    : "rgba(30,30,30,0.85)";
   // Thân obelisk (hình thang đứng)
-  const ow = 22, oh = 60 + obeliskPulse;
+  const ow = 22,
+    oh = 60 + obeliskPulse;
   ctx.beginPath();
   ctx.moveTo(ox - ow, oy + oh);
   ctx.lineTo(ox + ow, oy + oh);
@@ -2222,31 +2303,57 @@ function drawPuzzleZone(ctx) {
   ctx.lineTo(ox, oy - oh);
   ctx.lineTo(ox - ow * 0.5, oy - oh * 0.5);
   ctx.closePath();
-  ctx.fill(); ctx.stroke();
+  ctx.fill();
+  ctx.stroke();
   // Icon
   ctx.shadowBlur = 0;
   ctx.fillStyle = obeliskColor;
   ctx.font = `bold 20px Arial`;
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillText(pz.clueRevealed ? "!" : "?", ox, oy);
   // Label
   ctx.font = "13px Arial";
   ctx.fillStyle = obeliskColor;
-  ctx.fillText(pz.clueRevealed ? pz.orderDisplay : "ĐẾN GẦN ĐỂ XEM GỢI Ý", ox, oy + oh + 18);
+  ctx.fillText(
+    pz.clueRevealed ? pz.orderDisplay : "ĐẾN GẦN ĐỂ XEM GỢI Ý",
+    ox,
+    oy + oh + 18,
+  );
   ctx.restore();
 
   // Vẽ các Rune
-  pz.runes.forEach(rune => {
+  pz.runes.forEach((rune) => {
     ctx.save();
     const pulse = Math.sin(state.frameCount * 0.08 + rune.step) * 8;
     const isPending = rune.runeState === "pending";
     const isActivated = rune.runeState === "activated" || rune.activated;
     const isNext = rune.step === pz.currentStep && !isActivated && !isPending;
-    const color = isActivated ? "#00ffcc" : isPending ? "#ff9900" : isNext ? "#ffff00" : "#9933ff";
+    const color = isActivated
+      ? "#00ffcc"
+      : isPending
+        ? "#ff9900"
+        : isNext
+          ? "#ffff00"
+          : "#9933ff";
 
     // Vòng sáng nền
-    const grad = ctx.createRadialGradient(rune.x, rune.y, 0, rune.x, rune.y, 65 + pulse);
-    grad.addColorStop(0, isActivated ? "rgba(0,255,200,0.35)" : isPending ? "rgba(255,100,0,0.35)" : "rgba(150,0,255,0.2)");
+    const grad = ctx.createRadialGradient(
+      rune.x,
+      rune.y,
+      0,
+      rune.x,
+      rune.y,
+      65 + pulse,
+    );
+    grad.addColorStop(
+      0,
+      isActivated
+        ? "rgba(0,255,200,0.35)"
+        : isPending
+          ? "rgba(255,100,0,0.35)"
+          : "rgba(150,0,255,0.2)",
+    );
     grad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -2258,7 +2365,11 @@ function drawPuzzleZone(ctx) {
     ctx.shadowColor = color;
     ctx.strokeStyle = color;
     ctx.lineWidth = isPending ? 4 : 3;
-    ctx.fillStyle = isActivated ? "rgba(0,255,200,0.5)" : isPending ? "rgba(120,50,0,0.85)" : "rgba(60,0,120,0.8)";
+    ctx.fillStyle = isActivated
+      ? "rgba(0,255,200,0.5)"
+      : isPending
+        ? "rgba(120,50,0,0.85)"
+        : "rgba(60,0,120,0.8)";
     const s = 30 + pulse * 0.3;
     ctx.beginPath();
     ctx.moveTo(rune.x, rune.y - s);
@@ -2266,20 +2377,23 @@ function drawPuzzleZone(ctx) {
     ctx.lineTo(rune.x, rune.y + s);
     ctx.lineTo(rune.x - s * 0.7, rune.y);
     ctx.closePath();
-    ctx.fill(); ctx.stroke();
+    ctx.fill();
+    ctx.stroke();
 
     // Ký hiệu rune (A/B/C/D) — luôn hiển thị
     ctx.shadowBlur = 0;
     ctx.fillStyle = isActivated ? "#00ffcc" : isPending ? "#ffcc66" : "#fff";
     ctx.font = `bold 22px Arial`;
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText(rune.symbol, rune.x, rune.y);
 
     // Label trạng thái
     ctx.font = "13px Arial";
     ctx.fillStyle = color;
     if (isActivated) ctx.fillText("✔ KẾT NẠP", rune.x, rune.y + s + 18);
-    else if (isPending) ctx.fillText("⚔ TIÊU DIỆT CANH GIỮ!", rune.x, rune.y + s + 18);
+    else if (isPending)
+      ctx.fillText("⚔ TIÊU DIỆT CANH GIỮ!", rune.x, rune.y + s + 18);
 
     ctx.restore();
   });
@@ -2296,7 +2410,14 @@ function drawStagePortal(ctx) {
 
   ctx.save();
   // Vùng sáng ngoài
-  const outerGrad = ctx.createRadialGradient(x, y, 0, x, y, radius * 2.5 + breathe);
+  const outerGrad = ctx.createRadialGradient(
+    x,
+    y,
+    0,
+    x,
+    y,
+    radius * 2.5 + breathe,
+  );
   outerGrad.addColorStop(0, "rgba(180,0,255,0.3)");
   outerGrad.addColorStop(0.5, "rgba(80,0,200,0.15)");
   outerGrad.addColorStop(1, "rgba(0,0,0,0)");
@@ -2361,10 +2482,14 @@ function drawStageConditionsHUD(ctx, canvas) {
   const sz = state.swarmZones || [];
 
   const puzzleDone = pz?.solved === true;
-  const swarmCount = sz.filter(z => z.isCompleted).length;
+  const swarmCount = sz.filter((z) => z.isCompleted).length;
   const swarmTotal = sz.length;
-  const specialCount = cp.filter(c => c.state === "completed").length;
-  const allDone = puzzleDone && swarmCount >= swarmTotal && swarmTotal > 0 && specialCount >= 2;
+  const specialCount = cp.filter((c) => c.state === "completed").length;
+  const allDone =
+    puzzleDone &&
+    swarmCount >= swarmTotal &&
+    swarmTotal > 0 &&
+    specialCount >= 2;
 
   if (allDone && state.stagePortal?.active) return; // Ẩn khi portal đã mở
 
@@ -2382,15 +2507,26 @@ function drawStageConditionsHUD(ctx, canvas) {
 
   ctx.font = "bold 13px Arial";
   ctx.textAlign = "left";
-  const puzzleLabel = puzzleDone ? "Xong" : pz?.clueRevealed ? `${(pz?.currentStep || 1) - 1}/4 [${pz?.orderDisplay}]` : `${(pz?.currentStep || 1) - 1}/4 [Tìm gợi ý]`;
+  const puzzleLabel = puzzleDone
+    ? "Xong"
+    : pz?.clueRevealed
+      ? `${(pz?.currentStep || 1) - 1}/4 [${pz?.orderDisplay}]`
+      : `${(pz?.currentStep || 1) - 1}/4 [Tìm gợi ý]`;
   const items = [
-    { label: `Swarm Zone: ${swarmCount}/${swarmTotal}`, done: swarmCount >= swarmTotal && swarmTotal > 0 },
+    {
+      label: `Swarm Zone: ${swarmCount}/${swarmTotal}`,
+      done: swarmCount >= swarmTotal && swarmTotal > 0,
+    },
     { label: `Special Zone: ${specialCount}/2`, done: specialCount >= 2 },
     { label: `Giải đố: ${puzzleLabel}`, done: puzzleDone },
   ];
   items.forEach((item, i) => {
     ctx.fillStyle = item.done ? "#00ff99" : "#aaaaaa";
-    ctx.fillText((item.done ? "✔ " : "○ ") + item.label, panelX + 10, panelY + 24 + i * 22);
+    ctx.fillText(
+      (item.done ? "✔ " : "○ ") + item.label,
+      panelX + 10,
+      panelY + 24 + i * 22,
+    );
   });
   ctx.restore();
 }
