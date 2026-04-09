@@ -1867,6 +1867,46 @@ function drawMinimap(ctx, canvas) {
         ctx.textAlign = "center";
         ctx.fillText(m.symbol, mx, my + 3);
       }
+      if (m.type === "domino") {
+        ctx.beginPath();
+        ctx.arc(mx, my, 5, 0, Math.PI * 2);
+
+        ctx.fillStyle = m.isNext ? "#ffff00" : "#888";
+        ctx.fill();
+
+        ctx.strokeStyle = "#000";
+        ctx.stroke();
+      }
+      if (m.type === "melody") {
+        ctx.beginPath();
+        ctx.arc(mx, my, 5, 0, Math.PI * 2);
+
+        ctx.fillStyle = "#00ccff";
+        ctx.fill();
+
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 7px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("♪", mx, my + 2);
+      }
+      if (m.type === "torch") {
+        ctx.beginPath();
+        ctx.arc(mx, my, 5, 0, Math.PI * 2);
+
+        ctx.fillStyle = "#ff8800";
+        ctx.fill();
+
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 7px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🔥", mx, my + 2);
+      }
+      if (m.type === "source") {
+        ctx.fillStyle = m.color;
+        ctx.beginPath();
+        ctx.arc(mx, my, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
   }
 
@@ -2477,7 +2517,9 @@ function drawStagePortal(ctx) {
 
 // ===== HUD: ĐIỀU KIỆN QUA MÀN =====
 function drawStageConditionsHUD(ctx, canvas) {
-  const pz = state.puzzleZone;
+  const pz = state.currentPuzzle;
+  const type = state.currentPuzzleType;
+
   const cp = state.capturePoints || [];
   const sz = state.swarmZones || [];
 
@@ -2485,20 +2527,23 @@ function drawStageConditionsHUD(ctx, canvas) {
   const swarmCount = sz.filter((z) => z.isCompleted).length;
   const swarmTotal = sz.length;
   const specialCount = cp.filter((c) => c.state === "completed").length;
+
   const allDone =
     puzzleDone &&
     swarmCount >= swarmTotal &&
     swarmTotal > 0 &&
     specialCount >= 2;
 
-  if (allDone && state.stagePortal?.active) return; // Ẩn khi portal đã mở
+  if (allDone && state.stagePortal?.active) return;
 
   const panelX = canvas.width - 230;
   const panelY = 10;
   const panelW = 220;
-  const panelH = 90;
+  const panelH = 100;
 
   ctx.save();
+
+  // --- PANEL ---
   ctx.fillStyle = "rgba(0,0,0,0.6)";
   ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(panelX, panelY, panelW, panelH, 8);
@@ -2507,19 +2552,66 @@ function drawStageConditionsHUD(ctx, canvas) {
 
   ctx.font = "bold 13px Arial";
   ctx.textAlign = "left";
-  const puzzleLabel = puzzleDone
-    ? "Xong"
-    : pz?.clueRevealed
-      ? `${(pz?.currentStep || 1) - 1}/4 [${pz?.orderDisplay}]`
-      : `${(pz?.currentStep || 1) - 1}/4 [Tìm gợi ý]`;
+
+  // ===== 🔥 PUZZLE PROGRESSION FIX =====
+  let puzzleLabel = "N/A";
+
+  if (pz && type) {
+    if (puzzleDone) {
+      puzzleLabel = "Xong";
+    } else {
+      switch (type) {
+        case "domino":
+          puzzleLabel = `${pz.currentIndex || 0}/${pz.tiles?.length || 0}`;
+          break;
+
+        case "melody":
+          puzzleLabel = `${pz.input?.length || 0}/${pz.sequence?.length || 0}`;
+          break;
+
+        case "torch":
+          const lit = pz.torches?.filter((t) => t.lit).length || 0;
+          puzzleLabel = `${lit}/${pz.torches?.length || 0}`;
+          break;
+
+        case "rune":
+          puzzleLabel = pz.clueRevealed
+            ? `${(pz.currentStep || 1) - 1}/4`
+            : "Tìm gợi ý";
+          break;
+
+        default:
+          puzzleLabel = "...";
+      }
+    }
+  }
+
+  // icon đẹp hơn
+  const nameMap = {
+    domino: "⚡ Domino",
+    melody: "🎵 Melody",
+    torch: "🔥 Torch",
+    rune: "🔮 Rune",
+  };
+
+  const puzzleName = nameMap[type] || "Puzzle";
+
+  // ===== ITEMS =====
   const items = [
     {
       label: `Swarm Zone: ${swarmCount}/${swarmTotal}`,
       done: swarmCount >= swarmTotal && swarmTotal > 0,
     },
-    { label: `Special Zone: ${specialCount}/2`, done: specialCount >= 2 },
-    { label: `Giải đố: ${puzzleLabel}`, done: puzzleDone },
+    {
+      label: `Special Zone: ${specialCount}/2`,
+      done: specialCount >= 2,
+    },
+    {
+      label: `${puzzleName}: ${puzzleLabel}`,
+      done: puzzleDone,
+    },
   ];
+
   items.forEach((item, i) => {
     ctx.fillStyle = item.done ? "#00ff99" : "#aaaaaa";
     ctx.fillText(
@@ -2528,5 +2620,6 @@ function drawStageConditionsHUD(ctx, canvas) {
       panelY + 24 + i * 22,
     );
   });
+
   ctx.restore();
 }

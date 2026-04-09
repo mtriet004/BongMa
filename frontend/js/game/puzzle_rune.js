@@ -101,13 +101,6 @@ export function updateRunePuzzle(puzzle) {
       if (puzzle.currentStep > puzzle.runes.length) {
         puzzle.solved = true;
 
-        state.stagePortal = {
-          x: player.x,
-          y: player.y,
-          radius: 60,
-          active: true,
-        };
-
         state.floatingTexts.push({
           x: player.x,
           y: player.y - 140,
@@ -193,16 +186,25 @@ export function updateRunePuzzle(puzzle) {
         const a = Math.random() * Math.PI * 2;
 
         state.ghosts.push({
-          id: `puzzle_penalty_${Date.now()}_${i}`,
+          id: `puzzle_guard_${rune.symbol}_${Date.now()}_${i}`,
+          puzzleGuardTag: rune.symbol,
+
+          x: rune.x + Math.cos(a) * dist2,
+          y: rune.y + Math.sin(a) * dist2,
+
+          radius: 13,
+          hp: 25 + state.currentLevel * 6,
+          maxHp: 25 + state.currentLevel * 6,
+          speed: 1.8 + Math.random() * 0.5,
+
           isHorde: true,
-          x: player.x + Math.cos(a) * (100 + Math.random() * 200),
-          y: player.y + Math.sin(a) * (100 + Math.random() * 200),
-          radius: 12,
-          hp: 30 + state.currentLevel * 6,
-          maxHp: 30 + state.currentLevel * 6,
-          speed: 2.2,
           isStunned: 0,
           historyPath: [],
+          color: "#ff6600",
+
+          // ✅ QUAN TRỌNG
+          alive: true,
+          type: "ghost",
         });
       }
     }

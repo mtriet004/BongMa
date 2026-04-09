@@ -1,6 +1,30 @@
 import { state } from "../state.js";
-import { initRunePuzzle, updateRunePuzzle, drawRunePuzzle , getRuneMinimapMarkers} from "./puzzle_rune.js";
-// sau này thêm domino/torch/melody
+import {
+  initRunePuzzle,
+  updateRunePuzzle,
+  drawRunePuzzle,
+  getRuneMinimapMarkers,
+} from "./puzzle_rune.js";
+import {
+  initDominoPuzzle,
+  updateDominoPuzzle,
+  drawDominoPuzzle,
+  getDominoMinimapMarkers,
+} from "./puzzle_domino.js";
+
+import {
+  initTorchPuzzle,
+  updateTorchPuzzle,
+  drawTorchPuzzle,
+  getTorchMinimapMarkers,
+} from "./puzzle_torch.js";
+
+import {
+  initMelodyPuzzle,
+  updateMelodyPuzzle,
+  drawMelodyPuzzle,
+  getMelodyMinimapMarkers,
+} from "./puzzle_melody.js";
 
 const PUZZLES = {
   rune: {
@@ -9,12 +33,32 @@ const PUZZLES = {
     draw: drawRunePuzzle,
     getMinimapMarkers: getRuneMinimapMarkers,
   },
+  domino: {
+    init: initDominoPuzzle,
+    update: updateDominoPuzzle,
+    draw: drawDominoPuzzle,
+    getMinimapMarkers: getDominoMinimapMarkers,
+  },
+
+  torch: {
+    init: initTorchPuzzle,
+    update: updateTorchPuzzle,
+    draw: drawTorchPuzzle,
+    getMinimapMarkers: getTorchMinimapMarkers,
+  },
+
+  melody: {
+    init: initMelodyPuzzle,
+    update: updateMelodyPuzzle,
+    draw: drawMelodyPuzzle,
+    getMinimapMarkers: getMelodyMinimapMarkers,
+  },
 };
 
 export function initPuzzle() {
   const types = Object.keys(PUZZLES);
-  const selected = types[Math.floor(Math.random() * types.length)];
-
+  //const selected = types[Math.floor(Math.random() * types.length)];
+  const selected = "melody"; // chọn cái bạn muốn test
   state.currentPuzzleType = selected;
   state.currentPuzzle = {};
 
