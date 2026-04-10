@@ -64,7 +64,7 @@ function gameLoop() {
 }
 
 setupInput(canvas);
-
+setupMenuButtons(openShop, changeStateBound);
 // Kiểm tra đăng nhập TRƯỚC KHI hiện menu
 initAuth(async () => {
   await syncRemoteState();

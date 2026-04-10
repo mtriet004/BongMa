@@ -8,6 +8,7 @@ import { updateElementalZones } from "../game/elementalZone.js";
 import {
   updateElementalEnemies,
   spawnElementalEnemy,
+  ELEMENTS,
 } from "../entities/elementalEnemies.js";
 import {
   updateBullets,
@@ -307,25 +308,51 @@ export function update(ctx, canvas, changeStateFn) {
     updateBoss(boss);
   }
 
-  // Kích hoạt The Entity Phase
+  // Kích hoạt The Entity Phase HOẶC Chết (Dành cho Boss thường)
   if (boss && boss.hp <= 0 && !boss.entityTriggered) {
-    boss.entityPhase = true;
-    boss.entityTriggered = true;
-    boss.hp = boss.maxHp = 999999;
-    boss.entityTimer = 40 * FPS;
-    boss.phase2Triggered = false;
-    boss.phase3Triggered = false;
-    boss.phase4Triggered = false;
-    boss.name = "The Entity";
-    boss.color = "#ffffff";
-    state.screenShake.timer = 30;
-    state.screenShake.intensity = 12;
-    state.bullets = [];
-    state.delayedTasks = [];
-    state.glitch.invertControls = false;
-    state.glitch.stepMode = false;
-    state.glitch.matrixMode = false;
-    return;
+    // Check chéo cả 3 trường hợp để chắc chắn 100% nó là con glitch
+    const isGlitchBoss =
+      state.currentBossType === "glitch" ||
+      boss.bossType === "glitch" ||
+      boss.id === "glitch";
+
+    // 1. Chỉ duy nhất con Glitch mới được hóa The Entity
+    if (isGlitchBoss) {
+      boss.entityPhase = true;
+      boss.entityTriggered = true;
+      boss.hp = boss.maxHp = 999999;
+      boss.entityTimer = 40 * FPS;
+      boss.phase2Triggered = false;
+      boss.phase3Triggered = false;
+      boss.phase4Triggered = false;
+      boss.name = "The Entity";
+      boss.color = "#ffffff";
+      state.screenShake.timer = 30;
+      state.screenShake.intensity = 12;
+      state.bullets = [];
+      state.delayedTasks = [];
+      state.glitch.invertControls = false;
+      state.glitch.stepMode = false;
+      state.glitch.matrixMode = false;
+      return;
+    }
+    // 2. Các Boss khác chết là "cút" luôn, văng thưởng
+    else {
+      state.player.coins = (state.player.coins || 0) + 100;
+      state.boss = null;
+      state.isBossLevel = false;
+
+      // Dọn dẹp rác trên sân
+      state.bullets = [];
+      state.bossBeams = [];
+      state.groundWarnings = [];
+      state.safeZones = [];
+
+      // Chốt chặn an toàn: Ép false để không bao giờ lọt xuống logic The Entity bên dưới
+      boss.entityPhase = false;
+
+      return "BOSS_KILLED";
+    }
   }
 
   // The Entity Logic
@@ -736,10 +763,22 @@ export function update(ctx, canvas, changeStateFn) {
     }
   }
   if (state.frameCount % 180 === 0) {
-    spawnElementalEnemy(
-      state.player.x + (Math.random() - 0.5) * 800,
-      state.player.y + (Math.random() - 0.5) * 800,
+    const existingElements = new Set(
+      state.elementalEnemies.map((e) => e.element),
     );
+
+    const missing = ELEMENTS.filter((el) => !existingElements.has(el));
+
+    // nếu thiếu element thì spawn
+    if (missing.length > 0) {
+      const element = missing[Math.floor(Math.random() * missing.length)];
+
+      spawnElementalEnemy(
+        state.player.x + (Math.random() - 0.5) * 800,
+        state.player.y + (Math.random() - 0.5) * 800,
+        element, // 👈 truyền element vào
+      );
+    }
   }
   // --- 8. MÔI TRƯỜNG & TƯƠNG TÁC (Hazards, Safe Zones, Warnings) ---
   // Hazards

@@ -3,26 +3,26 @@ import { dist } from "../utils.js";
 import { spawnBullet } from "./helpers.js";
 import { spawnElementalZone } from "../game/elementalZone.js";
 
-const ELEMENTS = ["fire", "ice", "lightning", "wind", "earth"];
+export const ELEMENTS = ["fire", "ice", "lightning", "wind", "earth"];
 
-export function spawnElementalEnemy(x, y) {
-  const element = ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
+export function spawnElementalEnemy(x, y, forcedElement = null) {
+  const element =
+    forcedElement || ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
 
   state.elementalEnemies.push({
     x,
     y,
     radius: 14,
-    hp: 5,
-    speed: 1.2,
+    hp: 1,
+    speed: 2,
     element,
 
-    state: "idle", // idle | aggro | attack
-    aggroRange: 400,
+    state: "idle",
+    aggroRange: 500,
     attackRange: 250,
     cooldown: 0,
   });
 }
-
 export function updateElementalEnemies(player) {
   for (let i = state.elementalEnemies.length - 1; i >= 0; i--) {
     const e = state.elementalEnemies[i];

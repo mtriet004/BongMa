@@ -46,6 +46,8 @@ export const medic = {
                     g.hp -= 2;
                 }
             });
+            state.player.hp = Math.min(player.maxHp, player.hp + 5); // Hồi phục nhẹ
+            updateHealthUI();
             state.screenShake = { timer: 10, intensity: 3 };
         }
         return true;

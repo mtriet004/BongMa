@@ -51,35 +51,117 @@ function getShakeOffset() {
 }
 
 function drawLavaFloor(ctx) {
-  const pulse = (Math.sin(state.frameCount * 0.05) + 1) * 0.5;
+  const t = state.frameCount * 0.02;
 
   ctx.save();
 
-  // 🌑 nền toàn map (WORLD SPACE)
-  ctx.fillStyle = "rgba(15, 5, 0, 0.9)";
+  // ===== 1. NỀN GỐC (BASE GRADIENT) =====
+  // Nền tối ở giữa, tối đen ở viền để tạo chiều sâu (Vignette)
+  const baseGrad = ctx.createRadialGradient(
+    state.world.width / 2,
+    state.world.height / 2,
+    0,
+    state.world.width / 2,
+    state.world.height / 2,
+    state.world.width * 0.8,
+  );
+  baseGrad.addColorStop(0, "#1a0800");
+  baseGrad.addColorStop(1, "#050100");
+
+  ctx.fillStyle = baseGrad;
   ctx.fillRect(0, 0, state.world.width, state.world.height);
 
-  // 🔥 grid lava toàn map
-  ctx.strokeStyle = `rgba(255, 60, 0, ${0.2 + pulse * 0.4})`;
-  ctx.lineWidth = 3;
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = "#ff2200";
+  // Chuyển sang chế độ hòa trộn ánh sáng để vẽ dung nham & lửa
+  ctx.globalCompositeOperation = "lighter";
 
-  const gridSize = 80;
-
-  for (let x = 0; x <= state.world.width; x += gridSize) {
+  // ===== 2. MẠCH DUNG NHAM CÓ SỨC SỐNG (MAGMA VEINS) =====
+  // Thay vì vẽ hình tròn tĩnh, ta dùng sóng sin để tạo các luồng chảy mềm mại
+  const numVeins = 4;
+  for (let i = 0; i < numVeins; i++) {
     ctx.beginPath();
+    // Mỗi mạch chảy ở một độ cao khác nhau
+    const startY = (state.world.height / numVeins) * i + 100;
+    ctx.moveTo(0, startY);
+
+    for (let x = 0; x <= state.world.width; x += 100) {
+      // Tính toán độ uốn lượn dựa trên x và thời gian t
+      const wave1 = Math.sin(x * 0.005 + t + i) * 60;
+      const wave2 = Math.cos(x * 0.01 - t * 0.5) * 40;
+      ctx.lineTo(x, startY + wave1 + wave2);
+    }
+
+    // Vẽ luồng sáng mờ, rộng
+    ctx.strokeStyle =
+      i % 2 === 0 ? "rgba(255, 60, 0, 0.04)" : "rgba(200, 20, 0, 0.03)";
+    ctx.lineWidth = 120 + Math.sin(t * 2 + i) * 20; // Hơi nhịp thở nhẹ
+    ctx.stroke();
+
+    // Lõi mạch sáng hơn và nhỏ hơn
+    ctx.strokeStyle = "rgba(255, 120, 0, 0.05)";
+    ctx.lineWidth = 40;
+    ctx.stroke();
+  }
+
+  // ===== 3. HỆ THỐNG HẠT TÀN LỬA (EMBER PARTICLES) =====
+  // Khởi tạo mảng chứa hạt nếu chưa có
+  if (!state.lavaParticles) state.lavaParticles = [];
+
+  // Spawn hạt mới ngẫu nhiên (khoảng 30% mỗi frame)
+  if (Math.random() < 0.3) {
+    state.lavaParticles.push({
+      x: Math.random() * state.world.width,
+      y: state.world.height + 20, // Sinh ra từ đáy màn hình
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: -(Math.random() * 2 + 0.5), // Bay lên trên
+      size: Math.random() * 3 + 1,
+      life: 1.0, // Tuổi thọ từ 1.0 giảm dần về 0
+      decay: Math.random() * 0.01 + 0.005,
+      seed: Math.random() * Math.PI * 2,
+    });
+  }
+
+  // Cập nhật và vẽ hạt lửa
+  for (let i = state.lavaParticles.length - 1; i >= 0; i--) {
+    let p = state.lavaParticles[i];
+
+    // Chuyển động lượn lờ cản gió
+    p.x += Math.sin(t * 5 + p.seed) * 0.5 + p.vx;
+    p.y += p.vy;
+    p.life -= p.decay;
+
+    // Xóa hạt nếu hết tuổi thọ
+    if (p.life <= 0) {
+      state.lavaParticles.splice(i, 1);
+      continue;
+    }
+
+    // Hạt lửa sẽ chuyển từ vàng/trắng sang cam và mờ dần
+    const greenScale = Math.floor(150 * p.life);
+    ctx.fillStyle = `rgba(255, ${greenScale}, 0, ${p.life})`;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Trả lại chế độ vẽ bình thường cho Grid
+  ctx.globalCompositeOperation = "source-over";
+
+  // ===== 4. LƯỚI KHÔNG GIAN (GRID) RẤT NHẸ =====
+  const gridSize = 100;
+  ctx.strokeStyle = "rgba(255, 80, 0, 0.04)";
+  ctx.lineWidth = 1;
+
+  ctx.beginPath();
+  for (let x = 0; x <= state.world.width; x += gridSize) {
     ctx.moveTo(x, 0);
     ctx.lineTo(x, state.world.height);
-    ctx.stroke();
   }
-
   for (let y = 0; y <= state.world.height; y += gridSize) {
-    ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(state.world.width, y);
-    ctx.stroke();
   }
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -310,74 +392,12 @@ export function draw(ctx, canvas) {
     }
     ctx.restore();
   });
-  state.elementalZones.forEach((z) => {
-    ctx.save();
-
-    const alpha = z.life / z.maxLife;
-
-    // ===== BASE GLOW =====
-    const grad = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.radius);
-    grad.addColorStop(0, z.color + "88");
-    grad.addColorStop(1, z.color + "00");
-
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ===== SPECIAL EFFECT =====
-    switch (z.element) {
-      case "fire":
-        ctx.globalCompositeOperation = "lighter";
-        ctx.fillStyle = "rgba(255,100,0,0.3)";
-        ctx.beginPath();
-        ctx.arc(z.x, z.y, z.radius * 0.7, 0, Math.PI * 2);
-        ctx.fill();
-        break;
-
-      case "ice":
-        ctx.strokeStyle = "rgba(200,255,255,0.5)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
-        ctx.stroke();
-        break;
-
-      case "lightning":
-        for (let i = 0; i < 5; i++) {
-          ctx.beginPath();
-          ctx.moveTo(z.x, z.y);
-          ctx.lineTo(
-            z.x + (Math.random() - 0.5) * z.radius * 2,
-            z.y + (Math.random() - 0.5) * z.radius * 2,
-          );
-          ctx.strokeStyle = "#ffff00";
-          ctx.stroke();
-        }
-        break;
-
-      case "wind":
-        ctx.strokeStyle = "#ccffff";
-        ctx.beginPath();
-        ctx.arc(
-          z.x,
-          z.y,
-          z.radius * (0.8 + Math.sin(state.frameCount * 0.2) * 0.2),
-          0,
-          Math.PI * 2,
-        );
-        ctx.stroke();
-        break;
-
-      case "earth":
-        ctx.fillStyle = "rgba(120,80,50,0.3)";
-        ctx.beginPath();
-        ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
-        ctx.fill();
-        break;
-    }
-    ctx.restore();
-  });
+  // Thay vì tự ctx.arc() ở đây, hãy truyền vào hàm VFX
+  if (state.elementalZones) {
+    state.elementalZones.forEach((z) => {
+      drawElementalZoneVFX(ctx, z);
+    });
+  }
   // --- Draw Global Hazard Overlay ---
   if (state.globalHazard.active) {
     ctx.save();
@@ -694,6 +714,31 @@ export function draw(ctx, canvas) {
 
   for (let g of ghosts) {
     if (g.x < 0) continue;
+
+    // --- THÊM MỚI: VẼ TẦM HOẠT ĐỘNG CỦA MINIBOSS (GUARD ZONE) ---
+    if (g.isMiniBoss && g.behavior === "guard") {
+      const guardRadius = 800; // Phải bằng với bán kính tránh người chơi trong logic spawn
+
+      ctx.save();
+      ctx.beginPath();
+      // Chú ý: Vẽ từ originalX và originalY (tâm của điểm chiếm đóng)
+      ctx.arc(g.originalX, g.originalY, guardRadius, 0, Math.PI * 2);
+
+      // Vẽ vùng nền mờ nhạt cảnh báo
+      ctx.fillStyle = "rgba(255, 0, 85, 0.04)";
+      ctx.fill();
+
+      // Vẽ đường viền đứt nét
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255, 0, 85, 0.3)";
+      ctx.setLineDash([15, 15]);
+
+      // Xoay viền tạo cảm giác vùng năng lượng nguy hiểm
+      ctx.lineDashOffset = -(state.frameCount * 0.5);
+      ctx.stroke();
+
+      ctx.restore();
+    }
     let isDashing =
       g.historyPath &&
       g.historyPath.length > 2 &&
@@ -1526,24 +1571,84 @@ export function draw(ctx, canvas) {
     ctx.stroke();
   }
 
-  // Scout Q Visual Effect
-  if (state.isScoutQ) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, 150, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.lineWidth = 15;
-    ctx.stroke();
+  if (state.scoutSlash && state.scoutSlash.life > 0) {
+    const s = state.scoutSlash;
+    const progress = 1 - s.life / s.maxLife; // 0.0 -> 1.0
 
-    for (let i = 0; i < 3; i++) {
-      let a = (state.frameCount * 0.1 + i) * Math.PI * 0.6;
+    ctx.save();
+
+    // Đẩy gốc tọa độ về tâm người chơi để dễ xoay
+    ctx.translate(player.x, player.y);
+
+    // Blend mode làm vệt kiếm sáng rực rỡ như năng lượng
+    ctx.globalCompositeOperation = "lighter";
+
+    // 1. Quán tính chém (Xoay lưỡi kiếm theo tiến trình)
+    // Chém một vòng rưỡi (Math.PI * 3) tạo cảm giác cuồng phong
+    ctx.rotate(progress * Math.PI * 3);
+
+    // 2. Easing out: Bung ra cực nhanh lúc đầu, chững lại lúc sau
+    const easeProgress = 1 - Math.pow(1 - progress, 3);
+    const currentRadius = s.radius * easeProgress;
+
+    // 3. VẼ VỆT KIẾM CHÍNH (Core Slash)
+    // Dùng vòng lặp vẽ các vệt lùi dần về sau để tạo hình lưỡi liềm (đầu to, đuôi nhọn)
+    const numTrails = 12;
+    for (let i = 0; i < numTrails; i++) {
+      const trailRatio = i / numTrails; // 0.0 -> 1.0
+
+      // Đuôi mờ dần và biến mất theo life
+      const opacity = (1 - trailRatio) * Math.max(0, 1 - progress);
+      // Đầu lưỡi kiếm to, đuôi thu nhỏ lại tạo độ sắc
+      const thickness = (1 - trailRatio) * 15 * Math.max(0, 1 - progress);
+
       ctx.beginPath();
-      ctx.arc(player.x, player.y, 150, a, a + 0.5);
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 4;
+
+      // Đảm bảo bán kính không bao giờ bị âm
+      const safeRadius = Math.max(0.1, currentRadius - i * 0.5);
+
+      // Vẽ cung tròn khoảng 240 độ (Math.PI * 1.3)
+      ctx.arc(
+        0,
+        0,
+        safeRadius,
+        0 - trailRatio * 1.5,
+        Math.PI * 1.3 - trailRatio * 1.5,
+      );
+
+      ctx.strokeStyle = `rgba(0, 255, 255, ${opacity})`; // Màu Cyan đặc trưng
+      ctx.lineWidth = thickness;
+      ctx.lineCap = "round";
       ctx.stroke();
     }
+
+    // 4. LÕI CHỚP SÁNG (Glow Lưỡi kiếm)
+    ctx.beginPath();
+    ctx.arc(0, 0, currentRadius, Math.PI * 1.0, Math.PI * 1.3);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${1 - progress})`;
+    ctx.lineWidth = 8;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // 5. TIA GIÓ VĂNG RA TỪ CÚ CHÉM (Impact lines)
+    if (progress < 0.4) {
+      for (let j = 0; j < 5; j++) {
+        const angle = ((Math.PI * 2) / 5) * j + progress;
+        const lineStart = currentRadius * 0.6;
+        const lineEnd = currentRadius * (1.2 + Math.random() * 0.5);
+
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * lineStart, Math.sin(angle) * lineStart);
+        ctx.lineTo(Math.cos(angle) * lineEnd, Math.sin(angle) * lineEnd);
+        ctx.strokeStyle = `rgba(0, 200, 255, ${0.6 - progress * 1.5})`;
+        ctx.lineWidth = 2 + Math.random() * 2;
+        ctx.stroke();
+      }
+    }
+
     ctx.restore();
+
+    s.life--;
   }
 
   // Boss Phase Transition Effect
@@ -1565,7 +1670,6 @@ export function draw(ctx, canvas) {
     ctx.strokeText(state.currentPhaseName, canvas.width / 2, canvas.height / 2);
     ctx.restore();
   }
-
   // --- Particles (world-space only, inside camera translation) ---
   if (state.particles) {
     state.particles.forEach((p) => {
@@ -1775,29 +1879,41 @@ function drawHUD(ctx, canvas) {
   }
 }
 
-// ✅ THAY THẾ BẰNG HÀM NÀY:
 function drawMapGrid(ctx) {
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  const gridSize = 100;
+
+  ctx.save();
+
+  // ===== GRID NHẠT =====
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.03)"; // 👈 giảm từ 0.05 → 0.03
   ctx.lineWidth = 1;
-  const gridSize = 100; // Bạn có thể chỉnh số này (ví dụ 50 hoặc 100) để ô vuông nhỏ/to theo ý muốn
 
   ctx.beginPath();
-  // Vẽ các đường dọc chạy hết map
+
   for (let x = 0; x <= state.world.width; x += gridSize) {
     ctx.moveTo(x, 0);
     ctx.lineTo(x, state.world.height);
   }
-  // Vẽ các đường ngang chạy hết map
+
   for (let y = 0; y <= state.world.height; y += gridSize) {
     ctx.moveTo(0, y);
     ctx.lineTo(state.world.width, y);
   }
+
   ctx.stroke();
 
-  // Vẽ bức tường Laser màu đỏ bao quanh Map để biết giới hạn
-  ctx.strokeStyle = "#ff4444";
-  ctx.lineWidth = 5;
+  // ===== BORDER (laser nhẹ, không gắt) =====
+  const pulse = (Math.sin(state.frameCount * 0.05) + 1) * 0.5;
+
+  ctx.strokeStyle = `rgba(255, 80, 80, ${0.2 + pulse * 0.2})`; // 👈 mềm hơn
+  ctx.lineWidth = 3;
+
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = "rgba(255,80,80,0.5)";
+
   ctx.strokeRect(0, 0, state.world.width, state.world.height);
+
+  ctx.restore();
 }
 
 // Hàm vẽ Minimap
@@ -2653,92 +2769,216 @@ function drawStageConditionsHUD(ctx, canvas) {
     swarmTotal > 0 &&
     specialCount >= 2;
 
+  // Nếu xong hết và cổng đã mở thì ẩn HUD này đi
   if (allDone && state.stagePortal?.active) return;
-
-  const panelX = canvas.width - 230;
-  const panelY = 10;
-  const panelW = 220;
-  const panelH = 100;
 
   ctx.save();
 
-  // --- PANEL ---
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(panelX, panelY, panelW, panelH, 8);
-  else ctx.rect(panelX, panelY, panelW, panelH);
-  ctx.fill();
+  // --- 1. CHUẨN BỊ MẢNG CHỨA CÁC DÒNG TEXT ---
+  const lines = [];
 
-  ctx.font = "bold 13px Arial";
-  ctx.textAlign = "left";
-
-  // ===== 🔥 PUZZLE PROGRESSION FIX =====
-  let puzzleLabel = "N/A";
-
-  if (pz && type) {
-    if (puzzleDone) {
-      puzzleLabel = "Xong";
-    } else {
-      switch (type) {
-        case "domino":
-          puzzleLabel = `${pz.currentIndex || 0}/${pz.tiles?.length || 0}`;
-          break;
-
-        case "melody":
-          puzzleLabel = `${pz.input?.length || 0}/${pz.sequence?.length || 0}`;
-          break;
-
-        case "torch":
-          const lit = pz.torches?.filter((t) => t.lit).length || 0;
-          puzzleLabel = `${lit}/${pz.torches?.length || 0}`;
-          break;
-
-        case "rune":
-          puzzleLabel = pz.clueRevealed
-            ? `${(pz.currentStep || 1) - 1}/4`
-            : "Tìm gợi ý";
-          break;
-
-        default:
-          puzzleLabel = "...";
-      }
-    }
-  }
-
-  // icon đẹp hơn
   const nameMap = {
     domino: "⚡ Domino",
     melody: "🎵 Melody",
     torch: "🔥 Torch",
     rune: "🔮 Rune",
   };
+  const pzName = nameMap[type] || "🧩 Puzzle";
 
-  const puzzleName = nameMap[type] || "Puzzle";
+  // Xử lý logic text cho Puzzle
+  if (pz && type) {
+    if (puzzleDone) {
+      lines.push({ text: `${pzName}: Hoàn thành ✔️`, color: "#00ffcc" });
+    } else {
+      if (type === "rune") {
+        // --- LOGIC MỚI CHO RUNE ---
+        const activatedCount = pz.runes
+          ? pz.runes.filter((r) => r.activated).length
+          : 0;
+        const totalCount = pz.runes ? pz.runes.length : 4;
 
-  // ===== ITEMS =====
-  const items = [
-    {
-      label: `Swarm Zone: ${swarmCount}/${swarmTotal}`,
-      done: swarmCount >= swarmTotal && swarmTotal > 0,
-    },
-    {
-      label: `Special Zone: ${specialCount}/2`,
-      done: specialCount >= 2,
-    },
-    {
-      label: `${puzzleName}: ${puzzleLabel}`,
-      done: puzzleDone,
-    },
-  ];
+        if (!pz.clueRevealed) {
+          lines.push({
+            text: `${pzName}: Tìm Bia Đá (Obelisk)`,
+            color: "#ffaa00",
+          });
+        } else {
+          lines.push({
+            text: `${pzName}: ${activatedCount}/${totalCount}`,
+            color: "#fff",
+          });
 
-  items.forEach((item, i) => {
-    ctx.fillStyle = item.done ? "#00ff99" : "#aaaaaa";
-    ctx.fillText(
-      (item.done ? "✔ " : "○ ") + item.label,
-      panelX + 10,
-      panelY + 24 + i * 22,
-    );
+          // Từ điển công thức để HUD tự động build text
+          const RECIPES = {
+            steam: "Fire + Ice",
+            plasma: "Fire + Lightning",
+            blaze: "Fire + Wind",
+            magma: "Fire + Earth",
+            frostbite: "Ice + Lightning",
+            blizzard: "Ice + Wind",
+            glacier: "Ice + Earth",
+            storm: "Lightning + Wind",
+            magnet: "Lightning + Earth",
+            sandstorm: "Wind + Earth",
+          };
+
+          // Push từng dòng công thức của 4 Rune vào mảng
+          if (pz.runes) {
+            pz.runes.forEach((r) => {
+              const formula = RECIPES[r.element] || "? + ?";
+              // Viết hoa chữ cái đầu (VD: magnet -> Magnet)
+              const elName =
+                r.element.charAt(0).toUpperCase() + r.element.slice(1);
+
+              const isDone = r.activated;
+              const status = isDone ? "1/1 ✔️" : "0/1";
+              const color = isDone ? "#00ffcc" : "#aaaaaa"; // Đã xong thì sáng màu lục, chưa thì màu xám
+
+              lines.push({
+                text: `  ↳ ${elName} = ${formula} (${status})`,
+                color: color,
+              });
+            });
+          }
+        }
+      } else {
+        // --- LOGIC CHO CÁC PUZZLE KHÁC ---
+        let puzzleLabel = "...";
+        switch (type) {
+          case "domino":
+            puzzleLabel = `${pz.currentIndex || 0}/${pz.tiles?.length || 0}`;
+            break;
+          case "melody":
+            puzzleLabel = `${pz.input?.length || 0}/${pz.sequence?.length || 0}`;
+            break;
+          case "torch":
+            const lit = pz.torches?.filter((t) => t.lit).length || 0;
+            puzzleLabel = `${lit}/${pz.torches?.length || 0}`;
+            break;
+        }
+        lines.push({ text: `${pzName}: ${puzzleLabel}`, color: "#fff" });
+      }
+    }
+  }
+
+  // Xử lý logic text cho Swarm và Cứ Điểm
+  const swarmColor = swarmCount >= swarmTotal ? "#00ffcc" : "#fff";
+  lines.push({
+    text: `💀 Swarm Zone: ${swarmCount}/${swarmTotal}`,
+    color: swarmColor,
   });
+
+  const specialColor = specialCount >= 2 ? "#00ffcc" : "#fff";
+  lines.push({ text: `🚩 Cứ điểm: ${specialCount}/2`, color: specialColor });
+
+  // --- 2. TÍNH TOÁN KÍCH THƯỚC PANEL LINH HOẠT ---
+  const lineHeight = 20;
+  const padding = 15;
+  const panelW = 270; // Mở rộng chiều ngang một chút để chữ không bị tràn
+  const panelH = padding * 2 + (lines.length - 1) * lineHeight;
+
+  const panelX = canvas.width - panelW - 10;
+  const panelY = 310;
+
+  // Vẽ Background Panel
+  ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(panelX, panelY, panelW, panelH, 8);
+  else ctx.rect(panelX, panelY, panelW, panelH);
+  ctx.fill();
+  ctx.stroke();
+
+  // --- 3. VẼ TỪNG DÒNG TEXT ---
+  ctx.font = "bold 13px Arial";
+  ctx.textAlign = "left";
+
+  let currentY = panelY + padding + 10; // Căn chỉnh dòng đầu tiên
+  lines.forEach((line) => {
+    ctx.fillStyle = line.color;
+    // Highlight bóng mờ nhẹ nếu dòng text đó đã hoàn thành
+    if (line.color === "#00ffcc") {
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = "#00ffcc";
+    } else {
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.fillText(line.text, panelX + 15, currentY);
+    currentY += lineHeight;
+  });
+
+  ctx.restore();
+}
+
+export function hexToRgba(hex, alpha) {
+  const v = hex.replace("#", "");
+  const n = parseInt(v, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const bl = n & 255;
+  return `rgba(${r}, ${g}, ${bl}, ${alpha})`;
+}
+function drawElementalZoneVFX(ctx, z) {
+  const lifeRatio = Math.max(0, z.life / z.maxLife);
+  const t = state.frameCount * 0.05 + z.pulseSeed;
+  const pulse = 0.85 + Math.sin(t * 2) * 0.15;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  // outer glow
+  const glow = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.radius * 1.35);
+  glow.addColorStop(0, hexToRgba(z.color, 0.35 * lifeRatio));
+  glow.addColorStop(0.35, hexToRgba(z.color, 0.18 * lifeRatio));
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(z.x, z.y, z.radius * pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  // core
+  ctx.fillStyle = hexToRgba(z.color, 0.08 + 0.06 * lifeRatio);
+  ctx.beginPath();
+  ctx.arc(z.x, z.y, z.radius * 0.72, 0, Math.PI * 2);
+  ctx.fill();
+
+  // rotating ring
+  ctx.strokeStyle = hexToRgba(z.color, 0.6 * lifeRatio);
+  ctx.lineWidth = z.isMerged ? 4 : 2.5;
+  ctx.setLineDash(z.isMerged ? [12, 8] : [8, 10]);
+  ctx.lineDashOffset = -state.frameCount * (z.isMerged ? 1.6 : 0.9);
+  ctx.beginPath();
+  ctx.arc(z.x, z.y, z.radius * 0.98, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // inner orbit sparks
+  const sparkCount = z.isMerged ? 14 : 8;
+  for (let i = 0; i < sparkCount; i++) {
+    const a = t * (z.isMerged ? 1.8 : 1.2) + (i / sparkCount) * Math.PI * 2;
+    const r = z.radius * (0.35 + (i % 2) * 0.25);
+    const sx = z.x + Math.cos(a) * r;
+    const sy = z.y + Math.sin(a) * r;
+
+    ctx.fillStyle = hexToRgba(z.color, 0.8 - i / (sparkCount * 1.2));
+    ctx.beginPath();
+    ctx.arc(sx, sy, z.isMerged ? 2.2 : 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // merged text / label
+  if (z.isMerged) {
+    ctx.globalAlpha = 0.75 * lifeRatio;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.2;
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.strokeText(z.element.toUpperCase(), z.x, z.y - z.radius - 10);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(z.element.toUpperCase(), z.x, z.y - z.radius - 10);
+  }
 
   ctx.restore();
 }

@@ -247,6 +247,10 @@ function spawnPenalty() {
       speed: 2,
       isEnemy: true,
       alive: true,
+
+      // 👇 THÊM MẤY CÁI NÀY
+      type: "ghost",
+      takeDamage: true,
     });
   }
 }
