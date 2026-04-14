@@ -1,4 +1,5 @@
 import { state } from "../../state.js";
+import { drawEngineerPlayer } from "../../characters/common/engineer.js";
 import { drawGhostPlayer } from "../../characters/common/ghost.js";
 import { drawSpeedsterPlayer } from "../../characters/common/speedster.js";
 import { drawWardenPlayer } from "../../characters/common/warden.js";
@@ -39,13 +40,85 @@ export function drawSkillIndicators(ctx) {
 export function drawEngineerTurrets(ctx) {
   if (!state.engineerTurrets) return;
   state.engineerTurrets.forEach((t) => {
+    const fc = state.frameCount || 0;
+    const pulse = (Math.sin(fc * 0.18 + t.x * 0.01) + 1) * 0.5;
+    const lifeRatio = t.maxLife ? Math.max(0, t.life / t.maxLife) : 1;
+    const deploy = Math.max(0, t.deployPulse || 0) / 26;
+    const angle = t.angle || fc * 0.04;
+
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.globalCompositeOperation = "lighter";
+
+    if (deploy > 0) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 42 * (1 - deploy * 0.35), 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(0, 255, 204, ${deploy * 0.7})`;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 24;
+      ctx.shadowColor = "#00ffcc";
+      ctx.stroke();
+    }
+
     ctx.beginPath();
-    ctx.arc(t.x, t.y, 10, 0, Math.PI * 2);
-    ctx.fillStyle = "#00ccff";
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = "#00ccff";
+    ctx.ellipse(0, 9, 18, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 80, 95, 0.45)";
     ctx.fill();
+
+    ctx.rotate(angle);
+    ctx.strokeStyle = "rgba(0, 255, 204, 0.34)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 22 + pulse * 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    for (let i = 0; i < 3; i++) {
+      const a = i * (Math.PI * 2 / 3);
+      ctx.save();
+      ctx.rotate(a);
+      ctx.fillStyle = "rgba(0, 217, 255, 0.8)";
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = "#00d9ff";
+      ctx.fillRect(4, -3, 18, 6);
+      ctx.restore();
+    }
+
+    ctx.rotate(-angle);
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fillStyle = "#063038";
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = "#00d9ff";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#00ffcc";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, 5 + pulse * 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = lifeRatio < 0.18 ? "#ff6688" : "#eaffff";
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = lifeRatio < 0.18 ? "#ff6688" : "#00ffcc";
+    ctx.fill();
+
+    ctx.strokeStyle = `rgba(157, 255, 106, ${0.25 + lifeRatio * 0.35})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(0, -24);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, -27, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#9dff6a";
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = "#9dff6a";
+    ctx.fill();
+
     ctx.shadowBlur = 0;
+    ctx.restore();
   });
 }
 
@@ -73,6 +146,11 @@ export function drawPlayer(ctx) {
 
   if (char === "warden") {
     drawWardenPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "engineer") {
+    drawEngineerPlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 

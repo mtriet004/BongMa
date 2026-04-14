@@ -277,6 +277,104 @@ function drawWardenBullet(ctx, b) {
   ctx.restore();
 }
 
+function drawEngineerBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.32 + b.x * 0.01) + 1) * 0.5;
+  const R = Math.max(7, b.radius * 2.1);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % 2 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.4 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.4 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.65 + (Math.random() - 0.5) * 0.3,
+      vy: -ny * 0.65 + (Math.random() - 0.5) * 0.3,
+      life: 18,
+      color: Math.random() > 0.35 ? "#00ffcc" : "#9dff6a",
+      size: 1.5 + Math.random() * 2.2,
+    });
+  }
+
+  const tail = ctx.createLinearGradient(
+    b.x - nx * R * 3.4,
+    b.y - ny * R * 3.4,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  tail.addColorStop(0, "rgba(0, 255, 204, 0)");
+  tail.addColorStop(0.45, "rgba(0, 217, 255, 0.28)");
+  tail.addColorStop(1, "rgba(157, 255, 106, 0.72)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.25, b.y + ny * R * 1.25);
+  ctx.lineTo(b.x - nx * R * 3.0 + px * R * 0.56, b.y - ny * R * 3.0 + py * R * 0.56);
+  ctx.lineTo(b.x - nx * R * 2.6 - px * R * 0.56, b.y - ny * R * 2.6 - py * R * 0.56);
+  ctx.closePath();
+  ctx.fillStyle = tail;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#00ffcc";
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.1);
+  aura.addColorStop(0, "rgba(255, 255, 255, 0.88)");
+  aura.addColorStop(0.34, "rgba(0, 255, 204, 0.5)");
+  aura.addColorStop(1, "rgba(0, 45, 65, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.45 + pulse * 0.18), R * (0.92 + pulse * 0.12), 0, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.shadowBlur = 24;
+  ctx.shadowColor = "#00ffcc";
+  ctx.fill();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * 0.12);
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * R * 0.55, Math.sin(a) * R * 0.55);
+    ctx.lineTo(Math.cos(a) * R * 1.35, Math.sin(a) * R * 1.35);
+    ctx.strokeStyle = i % 2 === 0 ? "rgba(234, 255, 255, 0.9)" : "rgba(157, 255, 106, 0.72)";
+    ctx.lineWidth = 1.6;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = i % 2 === 0 ? "#eaffff" : "#9dff6a";
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.rotate(state.frameCount * 0.08);
+  ctx.strokeStyle = "rgba(0, 217, 255, 0.82)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + (i / 6) * Math.PI * 2;
+    const x = Math.cos(a) * R * (1 + pulse * 0.08);
+    const y = Math.sin(a) * R * (1 + pulse * 0.08);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = "#00d9ff";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 0.35, 0, Math.PI * 2);
+  ctx.fillStyle = "#eaffff";
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffffff";
+  ctx.fill();
+
+  ctx.restore();
+}
+
 // ===== BULLETS (14+ styles) =====
 export function drawBullets(ctx) {
   const { bullets, player } = state;
@@ -363,6 +461,11 @@ export function drawBullets(ctx) {
 
     if (b.isPlayer && b.visualStyle === "warden_sigil") {
       drawWardenBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "engineer_plasma") {
+      drawEngineerBullet(ctx, b);
       continue;
     }
 

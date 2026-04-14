@@ -23,6 +23,8 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
                   ? "ghost_wisp"
                   : ownerCharacter === "warden"
                     ? "warden_sigil"
+                    : ownerCharacter === "engineer"
+                      ? "engineer_plasma"
                   : null,
         bounces: isPlayer ? state.player.bounces || 0 : 0,
         pierce: isPlayer ? state.player.pierce || false : false,
