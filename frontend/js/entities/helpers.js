@@ -21,6 +21,8 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
                 ? "speedster_lightning"
                 : ownerCharacter === "ghost"
                   ? "ghost_wisp"
+                  : ownerCharacter === "warden"
+                    ? "warden_sigil"
                   : null,
         bounces: isPlayer ? state.player.bounces || 0 : 0,
         pierce: isPlayer ? state.player.pierce || false : false,

@@ -180,6 +180,103 @@ function drawGhostBullet(ctx, b) {
   ctx.restore();
 }
 
+function drawWardenBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const pulse = (Math.sin(state.frameCount * 0.26 + b.y * 0.01) + 1) * 0.5;
+  const angle = Math.atan2(b.vy, b.vx);
+  const R = Math.max(8, b.radius * 2.2);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % 3 === 0) {
+    state.particles.push({
+      x: b.x - nx * b.radius * 2 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * b.radius * 2 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.55 + (Math.random() - 0.5) * 0.35,
+      vy: -ny * 0.55 + (Math.random() - 0.5) * 0.35,
+      life: 22,
+      color: Math.random() > 0.3 ? "#ffd700" : "#00ffcc",
+      size: 1.8 + Math.random() * 2.4,
+    });
+  }
+
+  const tail = ctx.createLinearGradient(
+    b.x - nx * R * 3.2,
+    b.y - ny * R * 3.2,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  tail.addColorStop(0, "rgba(0, 255, 204, 0)");
+  tail.addColorStop(0.45, "rgba(255, 215, 0, 0.25)");
+  tail.addColorStop(1, "rgba(255, 245, 170, 0.76)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.2, b.y + ny * R * 1.2);
+  ctx.lineTo(b.x - nx * R * 3.0 + px * R * 0.72, b.y - ny * R * 3.0 + py * R * 0.72);
+  ctx.lineTo(b.x - nx * R * 2.4 - px * R * 0.72, b.y - ny * R * 2.4 - py * R * 0.72);
+  ctx.closePath();
+  ctx.fillStyle = tail;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffd700";
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle + state.frameCount * 0.08);
+
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.9);
+  glow.addColorStop(0, "rgba(255, 255, 255, 0.9)");
+  glow.addColorStop(0.36, "rgba(255, 215, 0, 0.48)");
+  glow.addColorStop(1, "rgba(120, 75, 0, 0)");
+  ctx.beginPath();
+  ctx.arc(0, 0, R * (1.15 + pulse * 0.18), 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  for (let ring = 0; ring < 2; ring++) {
+    const sides = ring === 0 ? 6 : 8;
+    const rr = R * (1 + ring * 0.42 + pulse * 0.08);
+    ctx.beginPath();
+    for (let i = 0; i < sides; i++) {
+      const a = -Math.PI / 2 + (i / sides) * Math.PI * 2;
+      const x = Math.cos(a) * rr;
+      const y = Math.sin(a) * rr;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = ring === 0 ? "rgba(255, 245, 170, 0.95)" : "rgba(0, 255, 204, 0.48)";
+    ctx.lineWidth = ring === 0 ? 2.4 : 1.4;
+    ctx.shadowBlur = ring === 0 ? 18 : 12;
+    ctx.shadowColor = ring === 0 ? "#ffd700" : "#00ffcc";
+    ctx.stroke();
+  }
+
+  ctx.rotate(-state.frameCount * 0.16);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 1.8;
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = "#fff3a6";
+  ctx.beginPath();
+  ctx.moveTo(0, -R * 0.72);
+  ctx.lineTo(R * 0.42, 0);
+  ctx.lineTo(0, R * 0.72);
+  ctx.lineTo(-R * 0.42, 0);
+  ctx.closePath();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 0.28, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff8d0";
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = "#ffd700";
+  ctx.fill();
+
+  ctx.restore();
+}
+
 // ===== BULLETS (14+ styles) =====
 export function drawBullets(ctx) {
   const { bullets, player } = state;
@@ -261,6 +358,11 @@ export function drawBullets(ctx) {
 
     if (b.isPlayer && b.visualStyle === "ghost_wisp") {
       drawGhostBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "warden_sigil") {
+      drawWardenBullet(ctx, b);
       continue;
     }
 
