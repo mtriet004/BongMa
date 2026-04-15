@@ -29,6 +29,8 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
                         ? "druid_seed"
                         : ownerCharacter === "brawler"
                           ? "brawler_impact"
+                          : ownerCharacter === "mage"
+                            ? "mage_fire"
                           : ownerCharacter === "medic"
                             ? "medic_serum"
                             : ownerCharacter === "tank"

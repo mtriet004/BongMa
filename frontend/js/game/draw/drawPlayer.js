@@ -3,6 +3,7 @@ import { drawBrawlerPlayer } from "../../characters/common/brawler.js";
 import { drawDruidPlayer } from "../../characters/common/druid.js";
 import { drawEngineerPlayer } from "../../characters/common/engineer.js";
 import { drawGhostPlayer } from "../../characters/common/ghost.js";
+import { drawMagePlayer } from "../../characters/rare/mage.js";
 import { drawMedicPlayer } from "../../characters/common/medic.js";
 import { drawSpeedsterPlayer } from "../../characters/common/speedster.js";
 import { drawTankPlayer } from "../../characters/rare/tank.js";
@@ -165,6 +166,11 @@ export function drawPlayer(ctx) {
 
   if (char === "brawler") {
     drawBrawlerPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "mage") {
+    drawMagePlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 
