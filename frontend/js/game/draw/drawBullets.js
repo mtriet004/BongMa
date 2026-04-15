@@ -686,6 +686,388 @@ function drawMedicBullet(ctx, b) {
   ctx.restore();
 }
 
+function drawTankBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.22 + b.x * 0.01) + 1) * 0.5;
+  const R = Math.max(8, b.radius * 2.25);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % 2 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.3 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.3 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.75 + (Math.random() - 0.5) * 0.55,
+      vy: -ny * 0.75 + (Math.random() - 0.5) * 0.55,
+      life: 20,
+      color: Math.random() > 0.35 ? "#bdf6ff" : "#00ffcc",
+      size: 2 + Math.random() * 2.8,
+    });
+  }
+
+  const tail = ctx.createLinearGradient(
+    b.x - nx * R * 4.2,
+    b.y - ny * R * 4.2,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  tail.addColorStop(0, "rgba(0, 255, 204, 0)");
+  tail.addColorStop(0.42, "rgba(189, 246, 255, 0.28)");
+  tail.addColorStop(1, "rgba(255, 255, 255, 0.62)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.25, b.y + ny * R * 1.25);
+  ctx.lineTo(b.x - nx * R * 3.6 + px * R * 0.7, b.y - ny * R * 3.6 + py * R * 0.7);
+  ctx.lineTo(b.x - nx * R * 3.0 - px * R * 0.7, b.y - ny * R * 3.0 - py * R * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = tail;
+  ctx.shadowBlur = 22;
+  ctx.shadowColor = "#00ffcc";
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.2);
+  aura.addColorStop(0, "rgba(255, 255, 255, 0.92)");
+  aura.addColorStop(0.34, "rgba(189, 246, 255, 0.52)");
+  aura.addColorStop(0.66, "rgba(0, 255, 204, 0.36)");
+  aura.addColorStop(1, "rgba(0, 30, 45, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.65 + pulse * 0.16), R * (1.05 + pulse * 0.1), 0, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.shadowBlur = 26;
+  ctx.shadowColor = "#bdf6ff";
+  ctx.fill();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * 0.08);
+  ctx.fillStyle = "rgba(6, 22, 26, 0.88)";
+  ctx.strokeStyle = "rgba(189, 246, 255, 0.85)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-R * 0.92, -R * 0.46, R * 1.84, R * 0.92, R * 0.22);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.roundRect(R * 0.12, -R * 0.34, R * 0.78, R * 0.68, R * 0.18);
+  ctx.fillStyle = "rgba(0, 255, 204, 0.22)";
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(0, 255, 204, 0.75)";
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = "#00ffcc";
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + (i / 6) * Math.PI * 2 + state.frameCount * 0.06;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * R * 0.7, Math.sin(a) * R * 0.7);
+    ctx.lineTo(Math.cos(a) * R * (1.35 + pulse * 0.1), Math.sin(a) * R * (1.35 + pulse * 0.1));
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(-R * 0.18, -R * 0.06, R * 0.26, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffffff";
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawMageBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.28 + b.x * 0.01) + 1) * 0.5;
+  const R = Math.max(8, b.radius * 2.2);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % 2 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.2 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.2 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.65 + (Math.random() - 0.5) * 0.55,
+      vy: -ny * 0.65 + (Math.random() - 0.5) * 0.55,
+      life: 18,
+      color: Math.random() > 0.35 ? "#ffb000" : "#ff5a1f",
+      size: 2 + Math.random() * 2.6,
+    });
+  }
+
+  const tail = ctx.createLinearGradient(
+    b.x - nx * R * 4.0,
+    b.y - ny * R * 4.0,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  tail.addColorStop(0, "rgba(255, 90, 31, 0)");
+  tail.addColorStop(0.42, "rgba(255, 176, 0, 0.26)");
+  tail.addColorStop(1, "rgba(255, 255, 255, 0.58)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.25, b.y + ny * R * 1.25);
+  ctx.lineTo(b.x - nx * R * 3.4 + px * R * 0.72, b.y - ny * R * 3.4 + py * R * 0.72);
+  ctx.lineTo(b.x - nx * R * 2.85 - px * R * 0.72, b.y - ny * R * 2.85 - py * R * 0.72);
+  ctx.closePath();
+  ctx.fillStyle = tail;
+  ctx.shadowBlur = 22;
+  ctx.shadowColor = "#ff5a1f";
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.25);
+  aura.addColorStop(0, "rgba(255, 255, 255, 0.92)");
+  aura.addColorStop(0.34, "rgba(255, 176, 0, 0.52)");
+  aura.addColorStop(0.66, "rgba(255, 90, 31, 0.36)");
+  aura.addColorStop(1, "rgba(30, 12, 0, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.65 + pulse * 0.16), R * (1.15 + pulse * 0.12), 0, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.shadowBlur = 26;
+  ctx.shadowColor = "#ffb000";
+  ctx.fill();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * 0.12);
+  ctx.strokeStyle = "rgba(255, 245, 220, 0.85)";
+  ctx.lineWidth = 2.2;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffb000";
+  ctx.beginPath();
+  for (let i = 0; i < 12; i++) {
+    const a = -Math.PI / 2 + (i / 12) * Math.PI * 2;
+    const rr = i % 2 === 0 ? R * (1.05 + pulse * 0.08) : R * 0.5;
+    const x = Math.cos(a) * rr;
+    const y = Math.sin(a) * rr;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.arc(-R * 0.18, -R * 0.06, R * 0.28, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffffff";
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawAssassinBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.34 + b.x * 0.01) + 1) * 0.5;
+  const R = Math.max(7, b.radius * 2.1);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % 2 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.2 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.2 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.75 + (Math.random() - 0.5) * 0.55,
+      vy: -ny * 0.75 + (Math.random() - 0.5) * 0.55,
+      life: 18,
+      color: Math.random() > 0.45 ? "#ff3355" : "#00ffcc",
+      size: 1.8 + Math.random() * 2.4,
+    });
+  }
+
+  const tail = ctx.createLinearGradient(
+    b.x - nx * R * 3.8,
+    b.y - ny * R * 3.8,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  tail.addColorStop(0, "rgba(10, 15, 26, 0)");
+  tail.addColorStop(0.38, "rgba(255, 51, 85, 0.18)");
+  tail.addColorStop(0.7, "rgba(0, 255, 204, 0.18)");
+  tail.addColorStop(1, "rgba(255, 255, 255, 0.48)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.15, b.y + ny * R * 1.15);
+  ctx.lineTo(b.x - nx * R * 3.2 + px * R * 0.65, b.y - ny * R * 3.2 + py * R * 0.65);
+  ctx.lineTo(b.x - nx * R * 2.6 - px * R * 0.65, b.y - ny * R * 2.6 - py * R * 0.65);
+  ctx.closePath();
+  ctx.fillStyle = tail;
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = "#0a0f1a";
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.1);
+  aura.addColorStop(0, "rgba(255, 255, 255, 0.9)");
+  aura.addColorStop(0.34, "rgba(255, 51, 85, 0.42)");
+  aura.addColorStop(0.62, "rgba(0, 255, 204, 0.32)");
+  aura.addColorStop(1, "rgba(5, 8, 15, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.55 + pulse * 0.16), R * (0.95 + pulse * 0.12), 0, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.shadowBlur = 24;
+  ctx.shadowColor = pulse > 0.5 ? "#ff3355" : "#00ffcc";
+  ctx.fill();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * 0.1);
+  ctx.fillStyle = "rgba(10, 15, 26, 0.92)";
+  ctx.strokeStyle = "rgba(255, 245, 220, 0.62)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(R * 1.2, 0);
+  ctx.lineTo(-R * 0.12, -R * 0.72);
+  ctx.lineTo(-R * 1.05, 0);
+  ctx.lineTo(-R * 0.12, R * 0.72);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.lineCap = "round";
+  for (let i = 0; i < 3; i++) {
+    const a = i * (Math.PI * 2 / 3) + state.frameCount * 0.08;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * R * 0.6, Math.sin(a) * R * 0.6);
+    ctx.lineTo(Math.cos(a) * R * (1.25 + pulse * 0.12), Math.sin(a) * R * (1.25 + pulse * 0.12));
+    ctx.strokeStyle = i === 0 ? "rgba(0, 255, 204, 0.62)" : "rgba(255, 51, 85, 0.62)";
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = i === 0 ? "#00ffcc" : "#ff3355";
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(-R * 0.18, -R * 0.06, R * 0.24, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffffff";
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawOracleBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.24 + b.y * 0.01) + 1) * 0.5;
+  const R = Math.max(8, b.radius * 2.2);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % 2 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.2 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.2 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.55 + (Math.random() - 0.5) * 0.35,
+      vy: -ny * 0.55 + (Math.random() - 0.5) * 0.35,
+      life: 20,
+      color: Math.random() > 0.35 ? "#ffd36a" : "#4aa3ff",
+      size: 1.8 + Math.random() * 2.6,
+    });
+  }
+
+  const tail = ctx.createLinearGradient(
+    b.x - nx * R * 3.8,
+    b.y - ny * R * 3.8,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  tail.addColorStop(0, "rgba(74, 163, 255, 0)");
+  tail.addColorStop(0.42, "rgba(74, 163, 255, 0.24)");
+  tail.addColorStop(0.72, "rgba(255, 211, 106, 0.22)");
+  tail.addColorStop(1, "rgba(255, 255, 255, 0.56)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.2, b.y + ny * R * 1.2);
+  ctx.lineTo(b.x - nx * R * 3.2 + px * R * 0.62, b.y - ny * R * 3.2 + py * R * 0.62);
+  ctx.lineTo(b.x - nx * R * 2.65 - px * R * 0.62, b.y - ny * R * 2.65 - py * R * 0.62);
+  ctx.closePath();
+  ctx.fillStyle = tail;
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = "#4aa3ff";
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.15);
+  aura.addColorStop(0, "rgba(255, 255, 255, 0.92)");
+  aura.addColorStop(0.34, "rgba(255, 211, 106, 0.5)");
+  aura.addColorStop(0.64, "rgba(74, 163, 255, 0.36)");
+  aura.addColorStop(1, "rgba(7, 19, 38, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.55 + pulse * 0.18), R * (1.02 + pulse * 0.12), 0, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.shadowBlur = 26;
+  ctx.shadowColor = pulse > 0.45 ? "#ffd36a" : "#4aa3ff";
+  ctx.fill();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * 0.08);
+  ctx.strokeStyle = "rgba(255, 211, 106, 0.9)";
+  ctx.fillStyle = "rgba(74, 163, 255, 0.46)";
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffd36a";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * 1.12, R * 0.5, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.rotate(-state.frameCount * 0.12);
+  ctx.strokeStyle = "rgba(74, 163, 255, 0.78)";
+  ctx.lineWidth = 1.6;
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = "#4aa3ff";
+  for (let i = 0; i < 3; i++) {
+    const a = -Math.PI / 2 + (i / 3) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * R * 0.72, Math.sin(a) * R * 0.72);
+    ctx.lineTo(Math.cos(a) * R * (1.25 + pulse * 0.12), Math.sin(a) * R * (1.25 + pulse * 0.12));
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.arc(R * 0.08, -R * 0.04, R * 0.18, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#ffffff";
+  ctx.fill();
+
+  ctx.restore();
+}
+
 // ===== BULLETS (14+ styles) =====
 export function drawBullets(ctx) {
   const { bullets, player } = state;
@@ -792,6 +1174,26 @@ export function drawBullets(ctx) {
 
     if (b.isPlayer && b.visualStyle === "medic_serum") {
       drawMedicBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "tank_fortress") {
+      drawTankBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "mage_fire") {
+      drawMageBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "assassin_blade") {
+      drawAssassinBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "oracle_eye") {
+      drawOracleBullet(ctx, b);
       continue;
     }
 

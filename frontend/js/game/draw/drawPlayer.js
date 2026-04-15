@@ -3,8 +3,12 @@ import { drawBrawlerPlayer } from "../../characters/common/brawler.js";
 import { drawDruidPlayer } from "../../characters/common/druid.js";
 import { drawEngineerPlayer } from "../../characters/common/engineer.js";
 import { drawGhostPlayer } from "../../characters/common/ghost.js";
+import { drawAssassinPlayer } from "../../characters/rare/assassin.js";
+import { drawMagePlayer } from "../../characters/rare/mage.js";
 import { drawMedicPlayer } from "../../characters/common/medic.js";
+import { drawOraclePlayer } from "../../characters/rare/oracle.js";
 import { drawSpeedsterPlayer } from "../../characters/common/speedster.js";
+import { drawTankPlayer } from "../../characters/rare/tank.js";
 import { drawWardenPlayer } from "../../characters/common/warden.js";
 
 // ===== SKILL RANGE INDICATORS =====
@@ -167,8 +171,28 @@ export function drawPlayer(ctx) {
     return;
   }
 
+  if (char === "assassin") {
+    drawAssassinPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "mage") {
+    drawMagePlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "oracle") {
+    drawOraclePlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
   if (char === "medic") {
     drawMedicPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "tank") {
+    drawTankPlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 

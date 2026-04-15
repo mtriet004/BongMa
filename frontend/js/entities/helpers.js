@@ -29,8 +29,16 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
                         ? "druid_seed"
                         : ownerCharacter === "brawler"
                           ? "brawler_impact"
+                          : ownerCharacter === "mage"
+                            ? "mage_fire"
+                            : ownerCharacter === "assassin"
+                              ? "assassin_blade"
+                              : ownerCharacter === "oracle"
+                                ? "oracle_eye"
                           : ownerCharacter === "medic"
                             ? "medic_serum"
+                            : ownerCharacter === "tank"
+                              ? "tank_fortress"
                   : null,
         bounces: isPlayer ? state.player.bounces || 0 : 0,
         pierce: isPlayer ? state.player.pierce || false : false,
