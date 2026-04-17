@@ -393,6 +393,10 @@
         <div class="mp-section-title">Người chơi (<span id="mp-player-count">1</span>/4)</div>
         <ul id="mp-players-list" class="mp-players-list"></ul>
 
+        <!-- Chọn nhân vật — hiện cho cả host và non-host -->
+        <div class="mp-section-title">Chọn Nhân Vật</div>
+        <div id="mp-char-select-grid" class="mp-char-select-grid"></div>
+
         <!-- Host-only: chọn boss -->
         <div id="mp-host-controls" style="display:none;">
           <div class="mp-section-title">Chọn Boss</div>
@@ -400,9 +404,9 @@
           <button id="btn-mp-start" class="mp-btn mp-btn-primary" disabled>🏆 BẮT ĐẦU TRẬN</button>
         </div>
 
-        <!-- Non-host waiting -->
+        <!-- Non-host: nút sẵn sàng -->
         <div id="mp-waiting-msg" style="display:none;">
-          <p class="mp-waiting-text">⏳ Đang chờ Host chọn Boss và bắt đầu...</p>
+          <button id="btn-mp-ready" class="mp-btn mp-btn-secondary">⏳ SẴN SÀNG</button>
         </div>
 
         <p id="mp-lobby-error" class="mp-error"></p>

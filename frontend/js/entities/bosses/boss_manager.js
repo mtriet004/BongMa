@@ -343,12 +343,6 @@ export function updateBoss(boss) {
     return;
   }
   
-  // NẾU GIÁP BỊ PHÁ (chiêu bị hủy, bossSpecial.name === ""): Cần reset lại cooldown để boss bừng tỉnh
-  if (boss.skillCooldown <= 0 && state.bossSpecial && state.bossSpecial.name === "") {
-     boss.skillCooldown = getBossSkillCooldown();
-     state.bossSpecial = null; // Dọn dẹp sạch sẽ
-  }
-
   if (boss.skillCooldown > 0) {
     boss.skillCooldown--;
   }
@@ -380,9 +374,6 @@ export function updateBoss(boss) {
         color: boss.color,
       };
 
-      boss.shield = isUlt ? 150 : 100;
-      boss.maxShield = boss.shield;
-      boss.shieldActive = true;
       return;
     }
   }

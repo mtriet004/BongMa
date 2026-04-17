@@ -391,8 +391,17 @@ export function updateBullets(
 
           if (!b.pierce) bullets.splice(i, 1);
           if (boss.hp <= 0) {
-            state.player.coins = (state.player.coins || 0) + 100;
-            state._bossKilled = true;
+            if (boss.bossType === "glitch" && !boss._phase2) {
+              // Trạng thái 2: hồi full máu, reset phase về đầu
+              boss.hp = boss.maxHp;
+              boss._phase2 = true;
+              boss.currentPhaseIndex = -1; // Force re-enter phase 0
+              boss.skillCooldown = 0;
+              state.bossSpecial = null;
+            } else {
+              state.player.coins = (state.player.coins || 0) + 100;
+              state._bossKilled = true;
+            }
           }
         }
         if (!b.pierce) continue;
@@ -685,8 +694,16 @@ export function updateBullets(
       UI.bossUi.classList.add("boss-shaking");
 
       if (boss.hp <= 0) {
-        state.player.coins = (state.player.coins || 0) + 100;
-        state._bossKilled = true;
+        if (boss.bossType === "glitch" && !boss._phase2) {
+          boss.hp = boss.maxHp;
+          boss._phase2 = true;
+          boss.currentPhaseIndex = -1;
+          boss.skillCooldown = 0;
+          state.bossSpecial = null;
+        } else {
+          state.player.coins = (state.player.coins || 0) + 100;
+          state._bossKilled = true;
+        }
       }
     }
     for (let j = ghosts.length - 1; j >= 0; j--) {

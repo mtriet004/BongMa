@@ -25,10 +25,11 @@ import { updateBossUI } from "./ui.js";
 
 // === MULTIPLAYER imports ===
 import { connectSocket, disconnectSocket } from "./multiplayer/socket.js";
-import { createRoom, joinRoom, mpState, resetMpState } from "./multiplayer/room.js";
+import { createRoom, joinRoom, mpState, resetMpState, openLobby, setLobbyUICallback } from "./multiplayer/room.js";
 import { startMultiplayerBossArena, handleMultiplayerBossKill } from "./multiplayer/mpFlow.js";
 import { stopAllSync } from "./multiplayer/sync.js";
 import { BOSS_TYPES } from "./entities/bosses/boss_manager.js";
+import { CHARACTERS } from "./characters/data.js";
 
 
 const canvas = document.getElementById("gameCanvas");
@@ -195,19 +196,14 @@ document.getElementById("btn-mp-create")?.addEventListener("click", async () => 
       setTimeout(() => rej(new Error("Timeout kết nối")), 5000);
     });
 
-    const roomCode = await createRoom(socket, username, state.selectedCharacter);
+    await createRoom(socket, username, state.selectedCharacter);
     errEl.textContent = "";
-
-    // Verify DOM elements
-    const lobbyScreen = document.getElementById("screen-lobby");
-    const playerList = document.getElementById("lobby-player-list");
-    const roomCodeEl = document.getElementById("lobby-room-code");
-
-    if (lobbyScreen && playerList && roomCodeEl) {
-      openLobby(socket); // Transition to the lobby screen
-    } else {
-      throw new Error("Lobby elements are missing in the DOM.");
-    }
+    _lobbySocket = socket;
+    openLobby(socket);
+    buildBossSelectGrid();
+    buildCharacterSelectGrid(socket);
+    refreshLobbyUI();
+    setupGameStartListener(socket);
   } catch (e) {
     errEl.style.color = "#ff4477";
     errEl.textContent = e.message;
@@ -243,7 +239,11 @@ document.getElementById("btn-mp-join")?.addEventListener("click", async () => {
 
     await joinRoom(socket, code, username, state.selectedCharacter);
     errEl.textContent = "";
-    openLobby(socket, code);
+    _lobbySocket = socket;
+    openLobby(socket);
+    buildCharacterSelectGrid(socket);
+    refreshLobbyUI();
+    setupGameStartListener(socket);
   } catch (e) {
     errEl.style.color = "#ff4477";
     errEl.textContent = e.message;
@@ -255,58 +255,8 @@ document.getElementById("btn-mp-join")?.addEventListener("click", async () => {
 let _lobbySocket = null;
 let _selectedBossKey = null;
 
-function openLobby(socket, roomCode) {
-  _lobbySocket = socket;
-
-  // Hide multiplayer screen and show lobby screen
-  document.getElementById("screen-multiplayer").classList.add("hidden");
-  document.getElementById("screen-lobby").classList.remove("hidden");
-
-  // Display room code
-  const roomCodeEl = document.getElementById("lobby-room-code");
-  if (roomCodeEl) roomCodeEl.textContent = roomCode;
-
-  // Clear player list
-  const playerListEl = document.getElementById("lobby-player-list");
-  if (playerListEl) playerListEl.innerHTML = "";
-
-  // Listen for player updates
-  socket.on("playerListUpdate", (players) => {
-    if (playerListEl) {
-      playerListEl.innerHTML = "";
-      players.forEach((player) => {
-        const li = document.createElement("li");
-        li.textContent = player;
-        playerListEl.appendChild(li);
-      });
-    }
-  });
-
-  // Listen for game start
-  socket.on("startGame", () => {
-    document.getElementById("screen-lobby").classList.add("hidden");
-    startMultiplayerBossArena(socket, gameLoop);
-  });
-
-  // Host starts the game
-  const startBtn = document.getElementById("btn-lobby-start");
-  if (startBtn) {
-    startBtn.onclick = () => {
-      socket.emit("startGame");
-    };
-  }
-
-  // Leave lobby
-  const leaveBtn = document.getElementById("btn-lobby-leave");
-  if (leaveBtn) {
-    leaveBtn.onclick = () => {
-      socket.emit("leaveRoom");
-      resetMpState();
-      document.getElementById("screen-lobby").classList.add("hidden");
-      document.getElementById("screen-main").classList.remove("hidden");
-    };
-  }
-}
+// Đăng ký refreshLobbyUI để room.js gọi khi có player_list_update
+setLobbyUICallback(() => refreshLobbyUI());
 
 function refreshLobbyUI() {
   const list = document.getElementById("mp-players-list");
@@ -317,17 +267,19 @@ function refreshLobbyUI() {
   countEl.textContent = mpState.players.length;
 
   mpState.players.forEach((p) => {
+    const readyIcon = p.isHost ? "✅" : (p.isReady ? "✅" : "⏳");
     const li = document.createElement("li");
     li.className = "mp-player-slot" + (p.isHost ? " is-host" : "");
     li.innerHTML = `
       <div class="mp-player-avatar">${p.isHost ? "👑" : "🎮"}</div>
-      <div>
+      <div style="flex:1">
         <div class="mp-player-name">${p.username}
           ${p.id === mpState.playerId ? '<span class="mp-player-you-badge">(Bạn)</span>' : ""}
           ${p.isHost ? '<span class="mp-player-host-badge">HOST</span>' : ""}
         </div>
-        <div style="font-size:11px;color:#446;">${p.characterId}</div>
+        <div style="font-size:11px;color:#aaa;">${p.characterId}</div>
       </div>
+      <div style="font-size:18px;">${readyIcon}</div>
     `;
     list.appendChild(li);
   });
@@ -340,10 +292,11 @@ function refreshLobbyUI() {
     list.appendChild(li);
   }
 
-  // Enable start if host and ≥ 2 players (allow 1 for testing)
   const startBtn = document.getElementById("btn-mp-start");
   if (startBtn) {
-    startBtn.disabled = !_selectedBossKey;
+    const nonHosts = mpState.players.filter((p) => !p.isHost);
+    const allReady = nonHosts.length === 0 || nonHosts.every((p) => p.isReady);
+    startBtn.disabled = !_selectedBossKey || !allReady;
     startBtn.textContent = mpState.players.length >= 2
       ? `🏆 BẮT ĐẦU (${mpState.players.length} người)`
       : "🏆 BẮT ĐẦU (1 người - Test)";
@@ -368,25 +321,48 @@ function buildBossSelectGrid() {
       _selectedBossKey = key;
       grid.querySelectorAll(".mp-boss-card").forEach((c) => c.classList.remove("selected"));
       card.classList.add("selected");
-      const startBtn = document.getElementById("btn-mp-start");
-      if (startBtn) startBtn.disabled = false;
+      refreshLobbyUI();
     };
     grid.appendChild(card);
   });
 }
 
-// Host: bắt đầu game
-document.getElementById("btn-mp-start")?.addEventListener("click", () => {
-  if (!_selectedBossKey) return;
-  if (!_lobbySocket) return;
+const RARITY_COLORS = { common: "#4ade80", rare: "#60a5fa", legendary: "#c084fc", mythical: "#ff0088" };
 
-  _lobbySocket.emit("start_game", {
-    roomCode: mpState.roomCode,
-    bossType: _selectedBossKey,
+function buildCharacterSelectGrid(socket) {
+  const grid = document.getElementById("mp-char-select-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  const owned = state.ownedCharacters || ["speedster"];
+
+  CHARACTERS.forEach((char) => {
+    if (!owned.includes(char.id)) return;
+    const card = document.createElement("div");
+    card.className = "mp-char-card" + (state.selectedCharacter === char.id ? " selected" : "");
+    card.style.setProperty("--char-color", RARITY_COLORS[char.rarity] || "#aaa");
+    card.innerHTML = `
+      <div class="mp-char-card-name" style="color:${RARITY_COLORS[char.rarity]}">${char.name}</div>
+      <div class="mp-char-card-rarity" style="font-size:10px;color:#888">${char.rarity}</div>
+    `;
+    card.onclick = () => {
+      state.selectedCharacter = char.id;
+      grid.querySelectorAll(".mp-char-card").forEach((c) => c.classList.remove("selected"));
+      card.classList.add("selected");
+      if (socket) {
+        socket.emit("player_change_character", {
+          roomCode: mpState.roomCode,
+          characterId: char.id,
+        });
+      }
+    };
+    grid.appendChild(card);
   });
+}
 
-  // Host cũng nhận game_start từ server
-  _lobbySocket.once("game_start", ({ bossType, hpScale, playerCount, players }) => {
+function setupGameStartListener(socket) {
+  socket.off("game_start");
+  socket.on("game_start", ({ bossType, hpScale, playerCount, players }) => {
     mpState.players = players;
     mpState.bossType = bossType;
     mpState.playerCount = playerCount;
@@ -394,6 +370,24 @@ document.getElementById("btn-mp-start")?.addEventListener("click", () => {
     closeLobbyScreen();
     startMultiplayerBossArena(bossType, hpScale, players, changeStateBound, gameLoop);
   });
+}
+
+// Host: bắt đầu game
+document.getElementById("btn-mp-start")?.addEventListener("click", () => {
+  if (!_selectedBossKey) return;
+  if (!_lobbySocket) return;
+  _lobbySocket.emit("start_game", {
+    roomCode: mpState.roomCode,
+    bossType: _selectedBossKey,
+  });
+});
+
+// Non-host: nút Sẵn Sàng
+document.getElementById("btn-mp-ready")?.addEventListener("click", () => {
+  if (!_lobbySocket) return;
+  _lobbySocket.emit("player_ready", { roomCode: mpState.roomCode });
+  const btn = document.getElementById("btn-mp-ready");
+  if (btn) btn.classList.toggle("ready-active");
 });
 
 // Rời phòng
@@ -407,8 +401,7 @@ document.getElementById("btn-mp-leave")?.addEventListener("click", () => {
 function closeLobbyScreen() {
   document.getElementById("screen-mp-lobby").classList.add("hidden");
   if (_lobbySocket) {
-    _lobbySocket.off("player_joined");
-    _lobbySocket.off("player_left");
+    _lobbySocket.off("player_list_update");
     _lobbySocket.off("game_start");
   }
 }

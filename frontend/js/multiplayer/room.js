@@ -32,7 +32,6 @@ export function createRoom(socket, username, characterId) {
       mpState.playerId = data.playerId;
       mpState.hostId = data.playerId;
       mpState.players = data.players;
-      openLobby(socket); // Thêm dòng này để host tự chuyển sang lobby sau khi tạo phòng thành công
       resolve(data.roomCode);
     });
 
@@ -57,7 +56,6 @@ export function joinRoom(socket, roomCode, username, characterId) {
       mpState.playerId = data.playerId;
       mpState.hostId = data.hostId;
       mpState.players = data.players;
-      openLobby(socket); // Transition to the lobby screen
       resolve(data);
     });
 
@@ -183,14 +181,27 @@ export function updateLobbyUI() {
   }
 }
 
+let _lobbyUICallback = null;
+
+/** Đăng ký hàm UI refresh từ main.js */
+export function setLobbyUICallback(fn) {
+  _lobbyUICallback = fn;
+}
+
 /**
  * Setup lobby listeners
  * @param {object} socket - socket instance
  */
 export function setupLobbyListeners(socket) {
-  // Khi có người ra/vào phòng, server gửi danh sách mới
+  socket.off("player_list_update"); // tránh duplicate listeners
   socket.on("player_list_update", (players) => {
     mpState.players = players;
+    // Đồng bộ characterId của bản thân từ server (phòng trường hợp server overwrite)
+    const me = players.find((p) => p.id === mpState.playerId);
+    if (me) {
+      // không cần ghi đè state.selectedCharacter ở đây, giữ client authority
+    }
     updateLobbyUI();
+    if (_lobbyUICallback) _lobbyUICallback();
   });
 }

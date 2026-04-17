@@ -42,6 +42,7 @@ export function setupSocketIO(io) {
         username: username || "Player",
         characterId: characterId || "speedster",
         isHost: true,
+        isReady: true, // Host luôn sẵn sàng
         x: 0,
         y: 0,
         hp: 5,
@@ -86,6 +87,7 @@ export function setupSocketIO(io) {
         username: username || `Player${room.players.size + 1}`,
         characterId: characterId || "speedster",
         isHost: false,
+        isReady: false,
         x: 0,
         y: 0,
         hp: 5,
@@ -96,20 +98,43 @@ export function setupSocketIO(io) {
       room.players.set(socket.id, player);
       socket.join(roomCode.toUpperCase());
 
+      const allPlayers = Array.from(room.players.values());
+
       socket.emit("room_joined", {
         roomCode: room.code,
         playerId: socket.id,
         hostId: room.hostId,
-        players: Array.from(room.players.values()),
+        players: allPlayers,
       });
 
       // Notify others
-      socket.to(room.code).emit("player_joined", {
-        player,
-        players: Array.from(room.players.values()),
-      });
+      io.to(room.code).emit("player_list_update", allPlayers);
 
       console.log(`[Room] ${username} vào phòng ${room.code} (${room.players.size}/4)`);
+    });
+
+    // ==============================
+    // PLAYER READY
+    // ==============================
+    socket.on("player_ready", ({ roomCode }) => {
+      const room = rooms.get(roomCode);
+      if (!room) return;
+      const player = room.players.get(socket.id);
+      if (!player) return;
+      player.isReady = !player.isReady;
+      io.to(roomCode).emit("player_list_update", Array.from(room.players.values()));
+    });
+
+    // ==============================
+    // PLAYER ĐỔI NHÂN VẬT TRONG LOBBY
+    // ==============================
+    socket.on("player_change_character", ({ roomCode, characterId }) => {
+      const room = rooms.get(roomCode);
+      if (!room) return;
+      const player = room.players.get(socket.id);
+      if (!player) return;
+      player.characterId = characterId;
+      io.to(roomCode).emit("player_list_update", Array.from(room.players.values()));
     });
 
     // ==============================
@@ -240,11 +265,13 @@ export function setupSocketIO(io) {
           rooms.delete(code);
           console.log(`[Room] Phòng ${code} đã xóa (trống)`);
         } else {
+          const remaining = Array.from(room.players.values());
           socket.to(code).emit("player_left", {
             playerId: socket.id,
             wasHost,
-            players: Array.from(room.players.values()),
+            players: remaining,
           });
+          io.to(code).emit("player_list_update", remaining);
 
           if (wasHost) {
             // Chuyển host cho người tiếp theo

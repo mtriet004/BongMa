@@ -26,12 +26,11 @@
   background: linear-gradient(135deg, rgba(0, 10, 30, 0.98) 0%, rgba(5, 0, 20, 0.98) 100%);
   border: 1px solid rgba(0, 255, 204, 0.3);
   border-radius: 18px;
-  padding: 36px 40px;
+  padding: 28px 32px;
   max-width: 480px;
   width: 100%;
   box-shadow: 0 0 40px rgba(0, 255, 204, 0.15), inset 0 0 60px rgba(0, 255, 204, 0.03);
   position: relative;
-  overflow: hidden;
 }
 
 .mp-panel::before {
@@ -191,13 +190,16 @@
 ====================================================== */
 .mp-lobby-panel {
   max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Room code display */
 .mp-room-code-display {
   text-align: center;
-  margin-bottom: 24px;
-  padding: 16px;
+  margin-bottom: 14px;
+  padding: 10px 16px;
   background: rgba(0, 255, 204, 0.05);
   border: 1px solid rgba(0, 255, 204, 0.2);
   border-radius: 12px;
@@ -212,10 +214,10 @@
 }
 
 .mp-room-code-value {
-  font-size: 38px;
+  font-size: 28px;
   font-weight: 900;
   font-family: 'Courier New', monospace;
-  letter-spacing: 12px;
+  letter-spacing: 8px;
   color: #00ffcc;
   text-shadow: 0 0 20px #00ffcc, 0 0 40px rgba(0,255,204,0.4);
   animation: mp-code-pulse 2s ease-in-out infinite;
@@ -236,16 +238,16 @@
 .mp-players-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 20px;
+  margin: 0 0 12px;
 }
 
 .mp-player-slot {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 8px 12px;
   border-radius: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.06);
   transition: border-color 0.25s;
@@ -318,7 +320,7 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin-bottom: 18px;
-  max-height: 260px;
+  max-height: 200px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -381,3 +383,61 @@
   background: rgba(0,255,204,0.2);
   border-radius: 4px;
 }
+
+/* --- Character Select Grid (Lobby) --- */
+.mp-char-select-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+
+.mp-char-card {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: rgba(255,255,255,0.03);
+  min-width: 80px;
+  text-align: center;
+}
+
+.mp-char-card:hover {
+  border-color: var(--char-color, #aaa);
+  background: rgba(255,255,255,0.07);
+}
+
+.mp-char-card.selected {
+  border-color: var(--char-color, #aaa);
+  background: rgba(255,255,255,0.12);
+  box-shadow: 0 0 8px var(--char-color, #aaa);
+}
+
+.mp-char-card-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* --- Ready Button --- */
+#btn-mp-ready {
+  width: 100%;
+  margin-top: 8px;
+  background: rgba(0, 80, 60, 0.4);
+  border-color: rgba(0, 255, 150, 0.4);
+  color: #00ffaa;
+}
+
+#btn-mp-ready.ready-active {
+  background: rgba(0, 180, 100, 0.3);
+  border-color: #00ff88;
+  color: #00ff88;
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+}
+
+.mp-lobby-panel::-webkit-scrollbar { width: 4px; }
+.mp-lobby-panel::-webkit-scrollbar-track { background: transparent; }
+.mp-lobby-panel::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.2); border-radius: 4px; }
+
