@@ -12,7 +12,10 @@ const PLAYER_BULLET_VISUALS = {
     hunter: "hunter_bolt",
     frost: "frost_crystal",
     gunner: "gunner_round",
+    knight: "knight_blade",
     oracle: "oracle_eye",
+    sharpshooter: "sharpshooter_mark",
+    berserker: "berserker_rage",
     medic: "medic_serum",
     tank: "tank_fortress",
 };
@@ -22,6 +25,10 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
     const angle = Math.atan2(ty - sy, tx - sx);
     const speed = isPlayer ? 10 : 4.5;
     const ownerCharacter = isPlayer ? state.player?.characterId : null;
+    const finalDamage =
+        isPlayer && ownerCharacter === "knight" && (state.activeBuffs?.r || 0) > 0
+            ? damage + 0.5
+            : damage;
     state.bullets.push({
         x: sx,
         y: sy,
@@ -31,7 +38,7 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
         radius: isPlayer ? 4 : 8,
         life: 240,
         style,
-        damage,
+        damage: finalDamage,
         ownerCharacter,
         visualStyle: PLAYER_BULLET_VISUALS[ownerCharacter] || null,
         bounces: isPlayer ? state.player.bounces || 0 : 0,

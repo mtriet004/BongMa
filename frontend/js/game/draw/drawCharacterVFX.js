@@ -54,40 +54,17 @@ function drawCreatorOrbs(ctx) {
 
 // ===== KNIGHT CHARGE TRAIL =====
 function drawKnightCharge(ctx) {
-  if (!state.knightCharge) return;
-  const player = state.player;
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, player.radius + 15, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(0, 200, 255, 0.7)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  return;
 }
 
 // ===== KNIGHT SHIELD =====
 function drawKnightShield(ctx) {
-  if (!state.knightShield) return;
-  const player = state.player;
-  const shieldPulse = Math.sin(state.frameCount * 0.2) * 3;
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, 35 + shieldPulse, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(100, 200, 255, 0.8)";
-  ctx.lineWidth = 4;
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = "#00aaff";
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  return;
 }
 
 // ===== KNIGHT RAGE AURA =====
 function drawKnightRage(ctx) {
-  if (!state.knightRage) return;
-  const player = state.player;
-  const pulse = Math.sin(state.frameCount * 0.3) * 5;
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, player.radius + 8 + pulse, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(255, 100, 0, 0.6)`;
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  return;
 }
 
 // ===== SCOUT SLASH =====

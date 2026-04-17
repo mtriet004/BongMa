@@ -1,4 +1,5 @@
 import { state } from "../../state.js";
+import { drawBerserkerPlayer } from "../../characters/legendary/berserker.js";
 import { drawBrawlerPlayer } from "../../characters/common/brawler.js";
 import { drawDruidPlayer } from "../../characters/common/druid.js";
 import { drawEngineerPlayer } from "../../characters/common/engineer.js";
@@ -7,9 +8,11 @@ import { drawAssassinPlayer } from "../../characters/rare/assassin.js";
 import { drawFrostPlayer } from "../../characters/rare/frost.js";
 import { drawGunnerPlayer } from "../../characters/rare/gunner.js";
 import { drawHunterPlayer } from "../../characters/rare/hunter.js";
+import { drawKnightPlayer } from "../../characters/rare/knight.js";
 import { drawMagePlayer } from "../../characters/rare/mage.js";
 import { drawMedicPlayer } from "../../characters/common/medic.js";
 import { drawOraclePlayer } from "../../characters/rare/oracle.js";
+import { drawSharpshooterPlayer } from "../../characters/legendary/sharpshooter.js";
 import { drawSpeedsterPlayer } from "../../characters/common/speedster.js";
 import { drawTankPlayer } from "../../characters/rare/tank.js";
 import { drawWardenPlayer } from "../../characters/common/warden.js";
@@ -194,6 +197,11 @@ export function drawPlayer(ctx) {
     return;
   }
 
+  if (char === "knight") {
+    drawKnightPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
   if (char === "mage") {
     drawMagePlayer(ctx, state, buffs, isInvulnSkill);
     return;
@@ -211,6 +219,16 @@ export function drawPlayer(ctx) {
 
   if (char === "tank") {
     drawTankPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "sharpshooter") {
+    drawSharpshooterPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "berserker") {
+    drawBerserkerPlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 
