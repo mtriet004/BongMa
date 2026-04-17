@@ -1826,6 +1826,587 @@ function drawSummonerBullet(ctx, b) {
   ctx.restore();
 }
 
+function drawSniperBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.3 + b.x * 0.01) + 1) * 0.5;
+  const heavy = !!b.sniperHeavy;
+  const execute = !!b.sniperExecute;
+  const focus = !!b.sniperFocus;
+  const R = Math.max(7, b.radius * (heavy ? 2.2 : execute ? 2 : focus ? 1.85 : 1.65));
+  const mainColor = execute ? "#ff3855" : heavy ? "#ffc45a" : focus ? "#8affc1" : "#62f3ff";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % (heavy || execute ? 1 : 3) === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.15 + px * (Math.random() - 0.5) * R * 0.65,
+      y: b.y - ny * R * 1.15 + py * (Math.random() - 0.5) * R * 0.65,
+      vx: -nx * 0.58 + (Math.random() - 0.5) * 0.28,
+      vy: -ny * 0.58 + (Math.random() - 0.5) * 0.28,
+      life: heavy || execute ? 18 : 14,
+      color: Math.random() > 0.42 ? mainColor : "#cbd7e3",
+      size: 1.2 + Math.random() * 2,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * (heavy ? 5.2 : 4.6),
+    b.y - ny * R * (heavy ? 5.2 : 4.6),
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(8, 11, 15, 0)");
+  trail.addColorStop(0.35, execute ? "rgba(255, 56, 85, 0.14)" : "rgba(98, 243, 255, 0.12)");
+  trail.addColorStop(0.72, heavy ? "rgba(255, 196, 90, 0.34)" : execute ? "rgba(255, 56, 85, 0.3)" : "rgba(98, 243, 255, 0.26)");
+  trail.addColorStop(1, "rgba(255, 255, 255, 0.72)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.18, b.y + ny * R * 1.18);
+  ctx.lineTo(b.x - nx * R * 4.15 + px * R * 0.28, b.y - ny * R * 4.15 + py * R * 0.28);
+  ctx.lineTo(b.x - nx * R * 3.35 - px * R * 0.28, b.y - ny * R * 3.35 - py * R * 0.28);
+  ctx.closePath();
+  ctx.fillStyle = trail;
+  ctx.shadowBlur = heavy || execute ? 22 : 14;
+  ctx.shadowColor = mainColor;
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.75);
+  glow.addColorStop(0, "rgba(255, 255, 255, 0.58)");
+  glow.addColorStop(0.42, heavy ? "rgba(255, 196, 90, 0.32)" : execute ? "rgba(255, 56, 85, 0.28)" : "rgba(98, 243, 255, 0.24)");
+  glow.addColorStop(1, "rgba(8, 11, 15, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.48 + pulse * 0.1), R * (0.48 + pulse * 0.06), 0, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.fillStyle = "#cbd7e3";
+  ctx.strokeStyle = mainColor;
+  ctx.lineWidth = heavy || execute ? 1.8 : 1.4;
+  ctx.shadowBlur = heavy || execute ? 18 : 12;
+  ctx.shadowColor = mainColor;
+  ctx.beginPath();
+  ctx.moveTo(R * 1.32, 0);
+  ctx.lineTo(R * 0.18, -R * 0.24);
+  ctx.lineTo(-R * 1.08, -R * 0.14);
+  ctx.lineTo(-R * 0.7, 0);
+  ctx.lineTo(-R * 1.08, R * 0.14);
+  ctx.lineTo(R * 0.18, R * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(8, 11, 15, 0.78)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.62, -R * 0.2);
+  ctx.lineTo(R * 0.74, -R * 0.04);
+  ctx.moveTo(-R * 0.62, R * 0.2);
+  ctx.lineTo(R * 0.52, R * 0.05);
+  ctx.stroke();
+
+  if (focus || heavy || execute) {
+    ctx.save();
+    ctx.rotate(state.frameCount * (execute ? 0.1 : 0.06));
+    ctx.strokeStyle = execute ? "rgba(255, 56, 85, 0.55)" : "rgba(98, 243, 255, 0.44)";
+    ctx.lineWidth = 1.1;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, R * (0.86 + pulse * 0.08), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawSpiritBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.24 + b.y * 0.01) + 1) * 0.5;
+  const phased = !!b.spiritPhased;
+  const ward = !!b.spiritWard;
+  const judgement = !!b.spiritJudgement;
+  const R = Math.max(8, b.radius * (judgement ? 2.35 : ward ? 2.08 : phased ? 1.95 : 1.85));
+  const mainColor = judgement ? "#ffe58a" : ward ? "#35fff2" : phased ? "#c9b7ff" : "#9ffff8";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % (judgement ? 1 : 2) === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.1 + px * (Math.random() - 0.5) * R * 0.9,
+      y: b.y - ny * R * 1.1 + py * (Math.random() - 0.5) * R * 0.9,
+      vx: -nx * 0.52 + (Math.random() - 0.5) * 0.36,
+      vy: -ny * 0.52 + (Math.random() - 0.5) * 0.36,
+      life: judgement ? 22 : 18,
+      color: Math.random() > 0.38 ? mainColor : "#fff8e8",
+      size: 1.5 + Math.random() * 2.4,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * 4.2,
+    b.y - ny * R * 4.2,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(7, 16, 18, 0)");
+  trail.addColorStop(0.34, phased ? "rgba(201, 183, 255, 0.18)" : "rgba(53, 255, 242, 0.18)");
+  trail.addColorStop(0.72, judgement ? "rgba(255, 229, 138, 0.34)" : "rgba(159, 255, 248, 0.28)");
+  trail.addColorStop(1, "rgba(255, 248, 232, 0.74)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.12, b.y + ny * R * 1.12);
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.7 + px * R * (0.62 + pulse * 0.2),
+    b.y - ny * R * 1.7 + py * R * (0.62 + pulse * 0.2),
+    b.x - nx * R * 3.5,
+    b.y - ny * R * 3.5,
+  );
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.7 - px * R * (0.62 + pulse * 0.2),
+    b.y - ny * R * 1.7 - py * R * (0.62 + pulse * 0.2),
+    b.x + nx * R * 1.12,
+    b.y + ny * R * 1.12,
+  );
+  ctx.fillStyle = trail;
+  ctx.shadowBlur = judgement ? 26 : 18;
+  ctx.shadowColor = mainColor;
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.15);
+  glow.addColorStop(0, "rgba(255, 255, 255, 0.74)");
+  glow.addColorStop(0.38, judgement ? "rgba(255, 229, 138, 0.4)" : "rgba(53, 255, 242, 0.32)");
+  glow.addColorStop(1, "rgba(7, 16, 18, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.16 + pulse * 0.12), R * (0.86 + pulse * 0.1), 0, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.fillStyle = judgement ? "#fff8e8" : "#9ffff8";
+  ctx.strokeStyle = mainColor;
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = judgement ? 22 : 14;
+  ctx.shadowColor = mainColor;
+  ctx.beginPath();
+  ctx.moveTo(R * 1.08, 0);
+  ctx.quadraticCurveTo(R * 0.22, -R * 0.66, -R * 0.86, -R * 0.32);
+  ctx.quadraticCurveTo(-R * 0.44, 0, -R * 0.86, R * 0.32);
+  ctx.quadraticCurveTo(R * 0.22, R * 0.66, R * 1.08, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = judgement ? "rgba(255, 229, 138, 0.86)" : "rgba(255, 248, 232, 0.78)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.54, 0);
+  ctx.lineTo(R * 0.58, 0);
+  ctx.moveTo(0, -R * 0.44);
+  ctx.lineTo(0, R * 0.44);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * (judgement ? 0.11 : 0.07));
+  ctx.strokeStyle = judgement ? "rgba(255, 229, 138, 0.58)" : "rgba(159, 255, 248, 0.46)";
+  ctx.lineWidth = 1.3;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.arc(0, 0, R * (1 + pulse * 0.08), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * R * 0.58, Math.sin(a) * R * 0.58);
+    ctx.lineTo(Math.cos(a) * R * 1.24, Math.sin(a) * R * 1.24);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawTimekeeperBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.28 + b.x * 0.01) + 1) * 0.5;
+  const blink = !!b.timekeeperBlink;
+  const frozen = !!b.timekeeperFrozen;
+  const loop = !!b.timekeeperLoop;
+  const R = Math.max(8, b.radius * (loop ? 2.1 : frozen ? 2.25 : blink ? 2.05 : 1.9));
+  const mainColor = loop ? "#ffe28a" : frozen ? "#e9fbff" : "#9feeff";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % (loop ? 1 : 2) === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.15 + px * (Math.random() - 0.5) * R * 0.8,
+      y: b.y - ny * R * 1.15 + py * (Math.random() - 0.5) * R * 0.8,
+      vx: -nx * 0.5 + (Math.random() - 0.5) * 0.32,
+      vy: -ny * 0.5 + (Math.random() - 0.5) * 0.32,
+      life: loop ? 20 : 16,
+      color: Math.random() > 0.36 ? mainColor : "#5bc8ff",
+      size: 1.4 + Math.random() * 2.2,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * 4.4,
+    b.y - ny * R * 4.4,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(7, 19, 31, 0)");
+  trail.addColorStop(0.32, "rgba(91, 200, 255, 0.14)");
+  trail.addColorStop(0.68, loop ? "rgba(255, 226, 138, 0.28)" : "rgba(159, 238, 255, 0.3)");
+  trail.addColorStop(1, "rgba(233, 251, 255, 0.74)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.12, b.y + ny * R * 1.12);
+  ctx.lineTo(b.x - nx * R * 3.55 + px * R * 0.42, b.y - ny * R * 3.55 + py * R * 0.42);
+  ctx.lineTo(b.x - nx * R * 2.9 - px * R * 0.42, b.y - ny * R * 2.9 - py * R * 0.42);
+  ctx.closePath();
+  ctx.fillStyle = trail;
+  ctx.shadowBlur = loop ? 22 : 16;
+  ctx.shadowColor = mainColor;
+  ctx.fill();
+
+  if (blink) {
+    ctx.strokeStyle = "rgba(233, 251, 255, 0.42)";
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([6, 8]);
+    ctx.beginPath();
+    ctx.moveTo(b.x - nx * R * 5, b.y - ny * R * 5);
+    ctx.lineTo(b.x + nx * R * 1.3, b.y + ny * R * 1.3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.05);
+  glow.addColorStop(0, "rgba(255, 255, 255, 0.68)");
+  glow.addColorStop(0.4, loop ? "rgba(255, 226, 138, 0.32)" : "rgba(91, 200, 255, 0.34)");
+  glow.addColorStop(1, "rgba(7, 19, 31, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.18 + pulse * 0.1), R * (0.84 + pulse * 0.08), 0, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * (frozen ? -0.09 : 0.09));
+  ctx.strokeStyle = loop ? "rgba(255, 226, 138, 0.74)" : "rgba(159, 238, 255, 0.72)";
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = mainColor;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, R * (0.95 + pulse * 0.06), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "rgba(233, 251, 255, 0.82)";
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    ctx.save();
+    ctx.translate(Math.cos(a) * R * 0.94, Math.sin(a) * R * 0.94);
+    ctx.rotate(a);
+    ctx.fillRect(-0.8, -3, 1.6, 6);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  ctx.fillStyle = frozen ? "#e9fbff" : "#9feeff";
+  ctx.strokeStyle = mainColor;
+  ctx.lineWidth = 1.6;
+  ctx.shadowBlur = loop ? 18 : 12;
+  ctx.shadowColor = mainColor;
+  ctx.beginPath();
+  ctx.moveTo(R * 1.08, 0);
+  ctx.lineTo(R * 0.18, -R * 0.48);
+  ctx.lineTo(-R * 0.82, 0);
+  ctx.lineTo(R * 0.18, R * 0.48);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(7, 19, 31, 0.62)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.45, 0);
+  ctx.lineTo(R * 0.62, 0);
+  ctx.moveTo(0, -R * 0.34);
+  ctx.lineTo(0, R * 0.34);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawVoidBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.3 + b.x * 0.01) + 1) * 0.5;
+  const singularity = !!b.voidSingularity;
+  const devour = !!b.voidDevour;
+  const laserFed = !!b.voidLaserFed;
+  const R = Math.max(8, b.radius * (laserFed ? 2.25 : devour ? 2.15 : singularity ? 2.05 : 1.9));
+  const mainColor = laserFed ? "#ff4dff" : devour ? "#f3dcff" : "#b45cff";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % (laserFed || devour ? 1 : 2) === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.1 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.1 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.58 + (Math.random() - 0.5) * 0.45,
+      vy: -ny * 0.58 + (Math.random() - 0.5) * 0.45,
+      life: laserFed ? 20 : 16,
+      color: Math.random() > 0.35 ? mainColor : "#7a18ff",
+      size: 1.5 + Math.random() * 2.6,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * 4.3,
+    b.y - ny * R * 4.3,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(5, 0, 9, 0)");
+  trail.addColorStop(0.3, "rgba(42, 6, 61, 0.2)");
+  trail.addColorStop(0.66, laserFed ? "rgba(255, 77, 255, 0.34)" : "rgba(180, 92, 255, 0.3)");
+  trail.addColorStop(1, "rgba(243, 220, 255, 0.7)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.12, b.y + ny * R * 1.12);
+  ctx.lineTo(b.x - nx * R * 3.3 + px * R * 0.6, b.y - ny * R * 3.3 + py * R * 0.6);
+  ctx.lineTo(b.x - nx * R * 2.75 - px * R * 0.6, b.y - ny * R * 2.75 - py * R * 0.6);
+  ctx.closePath();
+  ctx.fillStyle = trail;
+  ctx.shadowBlur = laserFed ? 24 : 17;
+  ctx.shadowColor = mainColor;
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.1);
+  glow.addColorStop(0, "rgba(255, 255, 255, 0.5)");
+  glow.addColorStop(0.3, laserFed ? "rgba(255, 77, 255, 0.36)" : "rgba(180, 92, 255, 0.34)");
+  glow.addColorStop(0.72, "rgba(18, 0, 31, 0.28)");
+  glow.addColorStop(1, "rgba(5, 0, 9, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.22 + pulse * 0.13), R * (0.86 + pulse * 0.1), 0, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.fillStyle = "#12001f";
+  ctx.strokeStyle = mainColor;
+  ctx.lineWidth = 1.7;
+  ctx.shadowBlur = laserFed ? 22 : 14;
+  ctx.shadowColor = mainColor;
+  ctx.beginPath();
+  ctx.moveTo(R * 1.12, 0);
+  ctx.quadraticCurveTo(R * 0.28, -R * 0.78, -R * 0.92, -R * 0.42);
+  ctx.lineTo(-R * 0.52, 0);
+  ctx.lineTo(-R * 0.92, R * 0.42);
+  ctx.quadraticCurveTo(R * 0.28, R * 0.78, R * 1.12, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.5);
+  core.addColorStop(0, "#ffffff");
+  core.addColorStop(0.25, "#f3dcff");
+  core.addColorStop(0.65, "#7a18ff");
+  core.addColorStop(1, "rgba(5, 0, 9, 0)");
+  ctx.beginPath();
+  ctx.arc(0, 0, R * (0.38 + pulse * 0.04), 0, Math.PI * 2);
+  ctx.fillStyle = core;
+  ctx.fill();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * (devour ? -0.12 : 0.09));
+  ctx.strokeStyle = laserFed ? "rgba(255, 77, 255, 0.62)" : "rgba(180, 92, 255, 0.52)";
+  ctx.lineWidth = 1.4;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.05 + pulse * 0.08), R * 0.45, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  if (singularity || devour || laserFed) {
+    ctx.save();
+    ctx.rotate(-state.frameCount * 0.07);
+    ctx.strokeStyle = "rgba(243, 220, 255, 0.48)";
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * (0.82 + pulse * 0.06), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawStormBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const pulse = (Math.sin(state.frameCount * 0.34 + b.x * 0.01) + 1) * 0.5;
+  const charged = !!b.stormCharged;
+  const gale = !!b.stormGale;
+  const tempest = !!b.stormTempest;
+  const R = Math.max(8, b.radius * (tempest ? 2.25 : charged ? 2.1 : 1.9));
+  const mainColor = tempest ? "#7cffc4" : charged ? "#f4ffff" : "#27d7ff";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (state.frameCount % (tempest || charged ? 1 : 2) === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.1 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.1 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.62 + (Math.random() - 0.5) * 0.48,
+      vy: -ny * 0.62 + (Math.random() - 0.5) * 0.48,
+      life: tempest ? 20 : 16,
+      color: Math.random() > 0.35 ? mainColor : "#7dfff7",
+      size: 1.5 + Math.random() * 2.7,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * 4.1,
+    b.y - ny * R * 4.1,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(5, 21, 29, 0)");
+  trail.addColorStop(0.34, "rgba(39, 215, 255, 0.2)");
+  trail.addColorStop(0.68, tempest ? "rgba(124, 255, 196, 0.36)" : "rgba(125, 255, 247, 0.3)");
+  trail.addColorStop(1, "rgba(244, 255, 255, 0.76)");
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.12, b.y + ny * R * 1.12);
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.7 + px * R * (0.76 + pulse * 0.22),
+    b.y - ny * R * 1.7 + py * R * (0.76 + pulse * 0.22),
+    b.x - nx * R * 3.45,
+    b.y - ny * R * 3.45,
+  );
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.7 - px * R * (0.76 + pulse * 0.22),
+    b.y - ny * R * 1.7 - py * R * (0.76 + pulse * 0.22),
+    b.x + nx * R * 1.12,
+    b.y + ny * R * 1.12,
+  );
+  ctx.fillStyle = trail;
+  ctx.shadowBlur = tempest ? 24 : 18;
+  ctx.shadowColor = mainColor;
+  ctx.fill();
+
+  if (gale) {
+    ctx.strokeStyle = "rgba(124, 255, 196, 0.36)";
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([8, 8]);
+    for (let i = -1; i <= 1; i += 2) {
+      ctx.beginPath();
+      ctx.moveTo(b.x - nx * R * 3.4 + px * R * i * 0.8, b.y - ny * R * 3.4 + py * R * i * 0.8);
+      ctx.quadraticCurveTo(b.x - nx * R * 1.5, b.y - ny * R * 1.5, b.x + nx * R * 0.8, b.y + ny * R * 0.8);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.1);
+  glow.addColorStop(0, "rgba(255, 255, 255, 0.76)");
+  glow.addColorStop(0.34, tempest ? "rgba(124, 255, 196, 0.42)" : "rgba(39, 215, 255, 0.36)");
+  glow.addColorStop(1, "rgba(5, 21, 29, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.2 + pulse * 0.12), R * (0.82 + pulse * 0.1), 0, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.shadowBlur = tempest ? 22 : 14;
+  ctx.shadowColor = mainColor;
+  ctx.strokeStyle = mainColor;
+  ctx.lineWidth = tempest ? 4 : 3;
+  ctx.beginPath();
+  ctx.moveTo(R * 1.18, 0);
+  ctx.lineTo(R * 0.36, -R * 0.24);
+  ctx.lineTo(R * 0.08, R * 0.18);
+  ctx.lineTo(-R * 0.32, -R * 0.12);
+  ctx.lineTo(-R * 0.98, 0);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(244, 255, 255, 0.9)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(R * 0.86, 0);
+  ctx.lineTo(R * 0.2, -R * 0.1);
+  ctx.lineTo(0, R * 0.08);
+  ctx.lineTo(-R * 0.52, 0);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.rotate(state.frameCount * (tempest ? 0.12 : 0.08));
+  ctx.strokeStyle = tempest ? "rgba(124, 255, 196, 0.58)" : "rgba(39, 215, 255, 0.5)";
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (0.98 + pulse * 0.08), R * 0.48, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  if (charged || tempest) {
+    for (let i = 0; i < 2; i++) {
+      const a = state.frameCount * 0.16 + i * Math.PI;
+      ctx.strokeStyle = "rgba(244, 255, 255, 0.58)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * R * 1.28, Math.sin(a) * R * 1.28);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
 // ===== BULLETS (14+ styles) =====
 export function drawBullets(ctx) {
   const { bullets, player } = state;
@@ -1982,6 +2563,31 @@ export function drawBullets(ctx) {
 
     if (b.isPlayer && b.visualStyle === "summoner_soul") {
       drawSummonerBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "sniper_round") {
+      drawSniperBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "spirit_orb") {
+      drawSpiritBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "timekeeper_space") {
+      drawTimekeeperBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "void_shard") {
+      drawVoidBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "storm_bolt") {
+      drawStormBullet(ctx, b);
       continue;
     }
 
