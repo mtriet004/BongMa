@@ -19,6 +19,9 @@ const PLAYER_BULLET_VISUALS = {
     summoner: "summoner_soul",
     sniper: "sniper_round",
     spirit: "spirit_orb",
+    timekeeper: "timekeeper_space",
+    void: "void_shard",
+    storm: "storm_bolt",
     medic: "medic_serum",
     tank: "tank_fortress",
 };

@@ -50,6 +50,7 @@ export const Characters = {
     speedster,
     summoner,
     tank,
+    void: voidChar,
     voidChar,
     warden,
     alchemist,

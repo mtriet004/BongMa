@@ -16,8 +16,11 @@ import { drawSharpshooterPlayer } from "../../characters/legendary/sharpshooter.
 import { drawSniperPlayer } from "../../characters/legendary/sniper.js";
 import { drawSpeedsterPlayer } from "../../characters/common/speedster.js";
 import { drawSpiritPlayer } from "../../characters/legendary/spirit.js";
+import { drawStormPlayer } from "../../characters/legendary/storm.js";
 import { drawSummonerPlayer } from "../../characters/legendary/summoner.js";
 import { drawTankPlayer } from "../../characters/rare/tank.js";
+import { drawTimekeeperPlayer } from "../../characters/legendary/timekeeper.js";
+import { drawVoidPlayer } from "../../characters/legendary/void.js";
 import { drawWardenPlayer } from "../../characters/common/warden.js";
 
 // ===== SKILL RANGE INDICATORS =====
@@ -247,6 +250,21 @@ export function drawPlayer(ctx) {
 
   if (char === "spirit") {
     drawSpiritPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "timekeeper") {
+    drawTimekeeperPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "void") {
+    drawVoidPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "storm") {
+    drawStormPlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 
