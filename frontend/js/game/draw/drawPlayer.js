@@ -12,7 +12,9 @@ import { drawHunterPlayer } from "../../characters/rare/hunter.js";
 import { drawKnightPlayer } from "../../characters/rare/knight.js";
 import { drawMagePlayer } from "../../characters/rare/mage.js";
 import { drawMedicPlayer } from "../../characters/common/medic.js";
+import { drawNecromancerPlayer } from "../../characters/mythical/necromancer.js";
 import { drawOraclePlayer } from "../../characters/rare/oracle.js";
+import { drawPainterPlayer } from "../../characters/mythical/painter.js";
 import { drawPhoenixPlayer } from "../../characters/mythical/phoenix.js";
 import { drawReaperPlayer } from "../../characters/legendary/reaper.js";
 import { drawScoutPlayer } from "../../characters/mythical/scout.js";
@@ -289,6 +291,16 @@ export function drawPlayer(ctx) {
 
   if (char === "scout") {
     drawScoutPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "necromancer") {
+    drawNecromancerPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "painter") {
+    drawPainterPlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 

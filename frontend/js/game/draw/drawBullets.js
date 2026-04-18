@@ -33,6 +33,8 @@ const FAST_BULLET_COLORS = {
   reaper_soul: ["#efe6cd", "#ff2448"],
   phoenix_fire: ["#fffdf0", "#ff4b18"],
   scout_arc: ["#f4ffff", "#43f5ff"],
+  necromancer_soul: ["#f0eee2", "#9c35ff"],
+  painter_paint: ["#fffdf2", "#ff2ccf"],
 };
 
 function isBulletVisible(b, padding = 160) {
@@ -3033,6 +3035,210 @@ function drawScoutBullet(ctx, b) {
   ctx.restore();
 }
 
+function drawNecromancerBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const fc = state.frameCount || 0;
+  const pulse = (Math.sin(fc * 0.28 + b.y * 0.01) + 1) * 0.5;
+  const guarded = !!b.necroGuarded;
+  const sacrifice = !!b.necroSacrifice;
+  const doom = !!b.necroDoom;
+  const soulCount = b.necroSoulCount || 0;
+  const R = Math.max(8, b.radius * (doom ? 2.75 : sacrifice ? 2.5 : guarded ? 2.25 : 2.05));
+  const edge = doom ? "#9c35ff" : sacrifice ? "#f0eee2" : "#8dffda";
+  const core = doom || sacrifice ? "#f0eee2" : "#d7fff2";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if ((doom || sacrifice || guarded) && fc % 3 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.2 + px * (Math.random() - 0.5) * R * 0.8,
+      y: b.y - ny * R * 1.2 + py * (Math.random() - 0.5) * R * 0.8,
+      vx: -nx * 0.45 + (Math.random() - 0.5) * 0.32,
+      vy: -ny * 0.45 + (Math.random() - 0.5) * 0.32,
+      life: doom ? 18 : 14,
+      color: Math.random() > 0.5 ? edge : "#f0eee2",
+      size: 1.8 + Math.random() * 2.4,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * 5,
+    b.y - ny * R * 5,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(7, 7, 12, 0)");
+  trail.addColorStop(0.22, "rgba(49, 49, 58, 0.22)");
+  trail.addColorStop(0.55, doom ? "rgba(156, 53, 255, 0.32)" : "rgba(141, 255, 218, 0.24)");
+  trail.addColorStop(0.82, sacrifice ? "rgba(240, 238, 226, 0.52)" : "rgba(156, 53, 255, 0.42)");
+  trail.addColorStop(1, "rgba(240, 238, 226, 0.84)");
+
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.05, b.y + ny * R * 1.05);
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.55 + px * R * (0.82 + pulse * 0.2),
+    b.y - ny * R * 1.55 + py * R * (0.82 + pulse * 0.2),
+    b.x - nx * R * 4.5,
+    b.y - ny * R * 4.5,
+  );
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.45 - px * R * (0.72 + pulse * 0.18),
+    b.y - ny * R * 1.45 - py * R * (0.72 + pulse * 0.18),
+    b.x + nx * R * 1.05,
+    b.y + ny * R * 1.05,
+  );
+  ctx.fillStyle = trail;
+  ctx.shadowBlur = doom ? 30 : 20;
+  ctx.shadowColor = edge;
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.35);
+  aura.addColorStop(0, "rgba(240, 238, 226, 0.82)");
+  aura.addColorStop(0.3, "rgba(141, 255, 218, 0.32)");
+  aura.addColorStop(0.62, doom ? "rgba(156, 53, 255, 0.34)" : "rgba(49, 49, 58, 0.26)");
+  aura.addColorStop(1, "rgba(7, 7, 12, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.14 + pulse * 0.12), R * (0.9 + pulse * 0.1), 0, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.fill();
+
+  ctx.shadowBlur = doom ? 28 : 18;
+  ctx.shadowColor = core;
+  ctx.fillStyle = core;
+  ctx.strokeStyle = "rgba(7, 7, 12, 0.78)";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(R * 0.2, -R * 0.04, R * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#07070c";
+  for (let side = -1; side <= 1; side += 2) {
+    ctx.beginPath();
+    ctx.ellipse(R * (0.08 + side * 0.16), -R * 0.1, R * 0.09, R * 0.13, side * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(R * 0.2, R * 0.08);
+  ctx.lineTo(R * 0.09, R * 0.24);
+  ctx.lineTo(R * 0.31, R * 0.24);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = edge;
+  ctx.beginPath();
+  ctx.arc(R * 0.2, -R * 0.04, R * (0.72 + pulse * 0.08), Math.PI * 0.15, Math.PI * 1.75);
+  ctx.stroke();
+
+  for (let i = 0; i < soulCount; i++) {
+    const a = fc * 0.1 + i * (Math.PI * 2 / Math.max(1, soulCount));
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * R * 0.95, Math.sin(a) * R * 0.52, R * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = i % 2 === 0 ? "rgba(141, 255, 218, 0.82)" : "rgba(156, 53, 255, 0.72)";
+    ctx.fill();
+  }
+
+  if (doom) {
+    ctx.save();
+    ctx.rotate(-fc * 0.09);
+    ctx.strokeStyle = "rgba(156, 53, 255, 0.7)";
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, R * 1.18, R * 0.58, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawPainterBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const fc = state.frameCount || 0;
+  const hue = (fc * 5 + b.x * 0.08 + b.y * 0.04) % 360;
+  const pulse = (Math.sin(fc * 0.32 + b.x * 0.012) + 1) * 0.5;
+  const R = Math.max(9, (b.radius || 4) * 2.35);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if (fc % 3 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.2 + px * (Math.random() - 0.5) * R,
+      y: b.y - ny * R * 1.2 + py * (Math.random() - 0.5) * R,
+      vx: -nx * 0.45 + (Math.random() - 0.5) * 0.4,
+      vy: -ny * 0.45 + (Math.random() - 0.5) * 0.4,
+      life: 15,
+      color: `hsl(${Math.round(hue)}, 96%, 64%)`,
+      size: 1.8 + Math.random() * 2.6,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * 4.8,
+    b.y - ny * R * 4.8,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(8, 16, 23, 0)");
+  trail.addColorStop(0.24, `hsla(${Math.round(hue + 120)}, 96%, 58%, 0.18)`);
+  trail.addColorStop(0.58, `hsla(${Math.round(hue)}, 96%, 62%, 0.34)`);
+  trail.addColorStop(0.86, "rgba(255, 253, 242, 0.66)");
+  trail.addColorStop(1, "rgba(255, 253, 242, 0.86)");
+
+  ctx.strokeStyle = trail;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = R * (0.8 + pulse * 0.18);
+  ctx.shadowBlur = 24;
+  ctx.shadowColor = `hsl(${Math.round(hue)}, 96%, 64%)`;
+  ctx.beginPath();
+  ctx.moveTo(b.x - nx * R * 4.2 + px * R * 0.4, b.y - ny * R * 4.2 + py * R * 0.4);
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.7 - px * R * (0.8 + pulse * 0.2),
+    b.y - ny * R * 1.7 - py * R * (0.8 + pulse * 0.2),
+    b.x,
+    b.y,
+  );
+  ctx.stroke();
+
+  const splat = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, R * 2.2);
+  splat.addColorStop(0, "rgba(255, 253, 242, 0.86)");
+  splat.addColorStop(0.32, `hsla(${Math.round(hue)}, 96%, 62%, 0.48)`);
+  splat.addColorStop(0.64, `hsla(${Math.round(hue + 130)}, 96%, 58%, 0.28)`);
+  splat.addColorStop(1, "rgba(8, 16, 23, 0)");
+  ctx.fillStyle = splat;
+  ctx.beginPath();
+  ctx.ellipse(b.x, b.y, R * (1.12 + pulse * 0.16), R * (0.82 + pulse * 0.1), Math.atan2(b.vy, b.vx), 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#fffdf2";
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, R * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 // ===== BULLETS (14+ styles) =====
 export function drawBullets(ctx) {
   const { bullets } = state;
@@ -3252,6 +3458,16 @@ export function drawBullets(ctx) {
 
     if (b.isPlayer && b.visualStyle === "scout_arc") {
       drawScoutBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "necromancer_soul") {
+      drawNecromancerBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "painter_paint") {
+      drawPainterBullet(ctx, b);
       continue;
     }
 

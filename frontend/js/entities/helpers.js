@@ -26,6 +26,8 @@ const PLAYER_BULLET_VISUALS = {
     reaper: "reaper_soul",
     phoenix: "phoenix_fire",
     scout: "scout_arc",
+    necromancer: "necromancer_soul",
+    painter: "painter_paint",
     medic: "medic_serum",
     tank: "tank_fortress",
 };
