@@ -30,6 +30,7 @@ const PLAYER_BULLET_VISUALS = {
     painter: "painter_paint",
     destroyer: "destroyer_ruin",
     creator: "creator_light",
+    elementalist: "elementalist_prism",
     medic: "medic_serum",
     tank: "tank_fortress",
 };

@@ -5,6 +5,7 @@ import { drawBrawlerPlayer } from "../../characters/common/brawler.js";
 import { drawCreatorPlayer } from "../../characters/mythical/creator.js";
 import { drawDestroyerPlayer } from "../../characters/mythical/destroyer.js";
 import { drawDruidPlayer } from "../../characters/common/druid.js";
+import { drawElementalistPlayer } from "../../characters/mythical/elementalist.js";
 import { drawEngineerPlayer } from "../../characters/common/engineer.js";
 import { drawGhostPlayer } from "../../characters/common/ghost.js";
 import { drawAssassinPlayer } from "../../characters/rare/assassin.js";
@@ -313,6 +314,11 @@ export function drawPlayer(ctx) {
 
   if (char === "creator") {
     drawCreatorPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "elementalist") {
+    drawElementalistPlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 
