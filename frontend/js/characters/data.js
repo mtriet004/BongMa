@@ -916,6 +916,7 @@ export const CHARACTERS = [
             {
                 key: "r",
                 name: "Bùng Nổ Nguyên Tố",
+                desc: "Bùng nổ sức mạnh theo hệ nguyên tố đang chọn.",
                 cooldown: 28,
                 initialCooldown: 0,
             },

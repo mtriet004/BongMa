@@ -37,6 +37,7 @@ const FAST_BULLET_COLORS = {
   painter_paint: ["#fffdf2", "#ff2ccf"],
   destroyer_ruin: ["#fff4df", "#ff2448"],
   creator_light: ["#fffdf0", "#ffd84a"],
+  elementalist_prism: ["#ffffff", "#7dffd8"],
 };
 
 function isBulletVisible(b, padding = 160) {
@@ -3484,6 +3485,144 @@ function drawCreatorBullet(ctx, b) {
   ctx.restore();
 }
 
+const ELEMENTALIST_BULLET_COLORS = {
+  fire: ["#fff1a8", "#ff5a1f", "#ffb22e"],
+  ice: ["#f5ffff", "#63dfff", "#8aa8ff"],
+  lightning: ["#fffdf0", "#ffe84a", "#7dfcff"],
+  earth: ["#fff3c4", "#b47a3c", "#8dff7a"],
+  wind: ["#f5fff8", "#7dffd8", "#b8ff7d"],
+};
+
+function drawElementalistBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const px = -ny;
+  const py = nx;
+  const angle = Math.atan2(b.vy, b.vx);
+  const fc = state.frameCount || 0;
+  const element = b.element || state.element || "fire";
+  const colors = ELEMENTALIST_BULLET_COLORS[element] || ELEMENTALIST_BULLET_COLORS.fire;
+  const pulse = (Math.sin(fc * 0.34 + b.x * 0.012) + 1) * 0.5;
+  const overload = !!b.elementalistOverload;
+  const skill = !!b.elementalistSkill;
+  const shift = !!b.elementalistShift;
+  const R = Math.max(8, (b.radius || 4) * (overload ? 2.72 : skill ? 2.45 : shift ? 2.3 : 2.12));
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  if ((overload || skill || shift) && fc % 3 === 0) {
+    state.particles.push({
+      x: b.x - nx * R * 1.2 + px * (Math.random() - 0.5) * R * 0.7,
+      y: b.y - ny * R * 1.2 + py * (Math.random() - 0.5) * R * 0.7,
+      vx: -nx * 0.5 + (Math.random() - 0.5) * 0.34,
+      vy: -ny * 0.5 + (Math.random() - 0.5) * 0.34,
+      life: overload ? 18 : 14,
+      color: Math.random() > 0.45 ? colors[1] : colors[0],
+      size: 1.8 + Math.random() * 2.5,
+    });
+  }
+
+  const trail = ctx.createLinearGradient(
+    b.x - nx * R * 5,
+    b.y - ny * R * 5,
+    b.x + nx * R,
+    b.y + ny * R,
+  );
+  trail.addColorStop(0, "rgba(0, 0, 0, 0)");
+  trail.addColorStop(0.24, `${colors[2]}30`);
+  trail.addColorStop(0.56, `${colors[1]}55`);
+  trail.addColorStop(0.84, overload ? `${colors[0]}cc` : `${colors[2]}88`);
+  trail.addColorStop(1, "rgba(255, 255, 255, 0.9)");
+
+  ctx.beginPath();
+  ctx.moveTo(b.x + nx * R * 1.08, b.y + ny * R * 1.08);
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.6 + px * R * (0.72 + pulse * 0.24),
+    b.y - ny * R * 1.6 + py * R * (0.72 + pulse * 0.24),
+    b.x - nx * R * 4.5,
+    b.y - ny * R * 4.5,
+  );
+  ctx.quadraticCurveTo(
+    b.x - nx * R * 1.5 - px * R * (0.62 + pulse * 0.2),
+    b.y - ny * R * 1.5 - py * R * (0.62 + pulse * 0.2),
+    b.x + nx * R * 1.08,
+    b.y + ny * R * 1.08,
+  );
+  ctx.fillStyle = trail;
+  ctx.shadowBlur = overload ? 30 : 22;
+  ctx.shadowColor = colors[1];
+  ctx.fill();
+
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 2.35);
+  aura.addColorStop(0, "rgba(255, 255, 255, 0.84)");
+  aura.addColorStop(0.3, `${colors[0]}88`);
+  aura.addColorStop(0.62, `${colors[1]}55`);
+  aura.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * (1.16 + pulse * 0.12), R * (0.82 + pulse * 0.08), 0, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
+  ctx.fill();
+
+  const shard = ctx.createLinearGradient(-R, 0, R, 0);
+  shard.addColorStop(0, `${colors[2]}35`);
+  shard.addColorStop(0.32, colors[1]);
+  shard.addColorStop(0.66, colors[2]);
+  shard.addColorStop(1, colors[0]);
+  ctx.fillStyle = shard;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.86)";
+  ctx.lineWidth = 1.4;
+  ctx.shadowBlur = overload ? 28 : 20;
+  ctx.shadowColor = colors[0];
+
+  if (element === "lightning") {
+    ctx.beginPath();
+    ctx.moveTo(R * 1.05, -R * 0.1);
+    ctx.lineTo(R * 0.1, R * 0.08);
+    ctx.lineTo(R * 0.34, -R * 0.62);
+    ctx.lineTo(-R * 0.78, R * 0.22);
+    ctx.lineTo(-R * 0.08, R * 0.04);
+    ctx.lineTo(-R * 0.36, R * 0.72);
+    ctx.closePath();
+  } else if (element === "earth") {
+    ctx.beginPath();
+    ctx.moveTo(R * 1.05, 0);
+    ctx.lineTo(R * 0.25, -R * 0.66);
+    ctx.lineTo(-R * 0.82, -R * 0.32);
+    ctx.lineTo(-R * 0.72, R * 0.42);
+    ctx.lineTo(R * 0.18, R * 0.72);
+    ctx.closePath();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(R * 1.16, 0);
+    ctx.quadraticCurveTo(-R * 0.15, -R * 0.75, -R * 0.86, -R * 0.12);
+    ctx.quadraticCurveTo(-R * 0.28, 0, -R * 0.86, R * 0.12);
+    ctx.quadraticCurveTo(-R * 0.15, R * 0.75, R * 1.16, 0);
+    ctx.closePath();
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  if (overload || element === "wind") {
+    ctx.save();
+    ctx.rotate(fc * 0.1);
+    ctx.strokeStyle = `${colors[2]}bb`;
+    ctx.lineWidth = 1.3;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, R * 1.08, R * 0.48, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
 // ===== BULLETS (14+ styles) =====
 export function drawBullets(ctx) {
   const { bullets } = state;
@@ -3723,6 +3862,11 @@ export function drawBullets(ctx) {
 
     if (b.isPlayer && b.visualStyle === "creator_light") {
       drawCreatorBullet(ctx, b);
+      continue;
+    }
+
+    if (b.isPlayer && b.visualStyle === "elementalist_prism") {
+      drawElementalistBullet(ctx, b);
       continue;
     }
 
