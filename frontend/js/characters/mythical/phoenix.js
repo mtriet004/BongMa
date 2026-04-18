@@ -45,7 +45,7 @@ function pushPhoenixBurst(state, type, x, y, radius, life, angle = 0) {
   });
 }
 
-function pushPhoenixTrail(state, x, y, angle, life = 58, radius = 42, dash = false) {
+function pushPhoenixTrail(state, x, y, angle, life = 16, radius = 42, dash = false) {
   ensurePhoenixList(state, "phoenixTrails").push({
     x,
     y,
@@ -285,6 +285,7 @@ function drawPhoenixBody(ctx, radius, active, frameCount) {
 
 function drawPhoenixTrail(ctx, trail, frameCount) {
   const alpha = Math.max(0, trail.life / trail.maxLife);
+  const visualAlpha = alpha * alpha;
   const progress = 1 - alpha;
   const radius = trail.radius * (0.65 + progress * 0.62);
   const dash = !!trail.dash;
@@ -295,9 +296,9 @@ function drawPhoenixTrail(ctx, trail, frameCount) {
   ctx.globalCompositeOperation = "lighter";
 
   const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-  glow.addColorStop(0, `rgba(255, 253, 240, ${alpha * 0.26})`);
-  glow.addColorStop(0.25, `rgba(255, 212, 90, ${alpha * 0.28})`);
-  glow.addColorStop(0.58, `rgba(255, 75, 24, ${alpha * (dash ? 0.36 : 0.24)})`);
+  glow.addColorStop(0, `rgba(255, 253, 240, ${visualAlpha * 0.26})`);
+  glow.addColorStop(0.25, `rgba(255, 212, 90, ${visualAlpha * 0.28})`);
+  glow.addColorStop(0.58, `rgba(255, 75, 24, ${visualAlpha * (dash ? 0.36 : 0.24)})`);
   glow.addColorStop(1, "rgba(42, 17, 16, 0)");
   ctx.beginPath();
   ctx.ellipse(0, 0, radius * (dash ? 1.5 : 1.08), radius * (dash ? 0.72 : 0.58), 0, 0, Math.PI * 2);
@@ -308,7 +309,7 @@ function drawPhoenixTrail(ctx, trail, frameCount) {
     ctx.save();
     ctx.translate(i * radius * 0.24, 0);
     ctx.rotate(i * 0.36 + progress * 1.2);
-    drawFlameFeather(ctx, radius * (dash ? 0.36 : 0.28), i === 0 ? PHOENIX.rose : PHOENIX.ember, PHOENIX.gold, alpha * 0.82);
+    drawFlameFeather(ctx, radius * (dash ? 0.36 : 0.28), i === 0 ? PHOENIX.rose : PHOENIX.ember, PHOENIX.gold, visualAlpha * 0.82);
     ctx.restore();
   }
 
@@ -544,7 +545,7 @@ export const phoenix = {
       const steps = Math.max(5, Math.min(18, Math.floor(dist(oldX, oldY, tx, ty) / 70)));
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
-        pushPhoenixTrail(state, oldX + (tx - oldX) * t, oldY + (ty - oldY) * t, aim, 46, 58, true);
+        pushPhoenixTrail(state, oldX + (tx - oldX) * t, oldY + (ty - oldY) * t, aim, 12, 58, true);
       }
     }
 
@@ -570,7 +571,7 @@ export const phoenix = {
 
     player.dashEffect = () => {
       const angle = Math.atan2(player.dashDy || 0, player.dashDx || 1);
-      pushPhoenixTrail(state, player.x, player.y, angle, 48, 64, true);
+      pushPhoenixTrail(state, player.x, player.y, angle, 14, 64, true);
       if (fc % 2 === 0) {
         for (let i = 0; i < 3; i++) {
           pushPhoenixSpark(state, player.x, player.y, angle + Math.PI + (Math.random() - 0.5) * 1.2, 1 + Math.random() * 2.5, 22, 2.2, i === 0 ? PHOENIX.white : PHOENIX.gold);
@@ -584,7 +585,7 @@ export const phoenix = {
       if (moved > 1.2 && (fc % ((buffs.q || player.dashTimeLeft > 0 || buffs.r > 0) ? 1 : 2) === 0)) {
         const angle = Math.atan2(player.y - last.y, player.x - last.x);
         const dash = player.dashTimeLeft > 0;
-        pushPhoenixTrail(state, player.x, player.y, angle, dash ? 50 : 44, dash ? 66 : (buffs.q > 0 ? 52 : 38), dash);
+        pushPhoenixTrail(state, player.x, player.y, angle, dash ? 14 : 10, dash ? 66 : (buffs.q > 0 ? 52 : 38), dash);
       }
     }
     state.phoenixLastPos = { x: player.x, y: player.y };
@@ -599,7 +600,7 @@ export const phoenix = {
     if (buffs.r > 0) {
       state.playerFireRateMultiplier = (state.playerFireRateMultiplier || 1) * 0.45;
       state.playerMultiShotModifier = Math.max(state.playerMultiShotModifier || 1, (player.multiShot || 1) + 2);
-      if (fc % 4 === 0) pushPhoenixTrail(state, player.x, player.y, fc * 0.08, 52, 62, false);
+      if (fc % 4 === 0) pushPhoenixTrail(state, player.x, player.y, fc * 0.08, 12, 62, false);
     }
 
     bullets.forEach((b) => {
