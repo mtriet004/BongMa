@@ -1,4 +1,78 @@
 import { state } from "../../state.js";
+import {
+  shouldUseExtremeBulletDraw,
+  shouldUseFastBulletDraw,
+  withParticleSpawnBudget,
+} from "../vfxBudget.js";
+
+const FAST_BULLET_COLORS = {
+  speedster_lightning: ["#fff36a", "#ffd400"],
+  ghost_wisp: ["#f7fbff", "#9f7cff"],
+  warden_sigil: ["#ffd700", "#00ffcc"],
+  engineer_plasma: ["#00ffcc", "#00d9ff"],
+  druid_seed: ["#beff78", "#00ff88"],
+  brawler_impact: ["#ffc800", "#ff6432"],
+  medic_serum: ["#00ffaa", "#dfffee"],
+  tank_fortress: ["#bdf6ff", "#00ffcc"],
+  mage_fire: ["#ffc800", "#ff5a1f"],
+  assassin_blade: ["#ff3355", "#00ffcc"],
+  hunter_bolt: ["#ffd46a", "#8b5a2b"],
+  frost_crystal: ["#ffffff", "#63dfff"],
+  gunner_round: ["#fff1a3", "#ff9f1a"],
+  knight_blade: ["#f7f1d0", "#5fb3ff"],
+  oracle_eye: ["#e9d7ff", "#50f5ff"],
+  alchemist_flask: ["#d7fff4", "#00ff9d"],
+  sharpshooter_mark: ["#f7f1ff", "#ffd36a"],
+  berserker_rage: ["#ffd2c0", "#ff2448"],
+  summoner_soul: ["#ffffff", "#b9b9c8"],
+  sniper_round: ["#eafff4", "#7dffac"],
+  spirit_orb: ["#f8ffff", "#7dfff7"],
+  timekeeper_space: ["#f4ffff", "#71d8ff"],
+  void_shard: ["#f3dcff", "#7a18ff"],
+  storm_bolt: ["#f4ffff", "#27d7ff"],
+  reaper_soul: ["#efe6cd", "#ff2448"],
+  phoenix_fire: ["#fffdf0", "#ff4b18"],
+};
+
+function isBulletVisible(b, padding = 160) {
+  const cam = state.camera;
+  if (!cam) return true;
+  const width = cam.width || 0;
+  const height = cam.height || 0;
+  return (
+    b.x >= cam.x - padding &&
+    b.x <= cam.x + width + padding &&
+    b.y >= cam.y - padding &&
+    b.y <= cam.y + height + padding
+  );
+}
+
+function drawFastBullet(ctx, b) {
+  const speed = Math.hypot(b.vx, b.vy) || 1;
+  const nx = b.vx / speed;
+  const ny = b.vy / speed;
+  const colors = FAST_BULLET_COLORS[b.visualStyle] || (b.isPlayer ? ["#eaffff", "#00ffcc"] : ["#ffd0d0", "#ff4d4d"]);
+  const r = Math.max(3, Math.min(8, b.radius || 4));
+  const trail = Math.max(12, r * 4);
+
+  ctx.save();
+  ctx.globalCompositeOperation = b.isPlayer ? "lighter" : "source-over";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = colors[1];
+  ctx.lineWidth = Math.max(2, r * 0.8);
+  ctx.globalAlpha = 0.68;
+  ctx.beginPath();
+  ctx.moveTo(b.x - nx * trail, b.y - ny * trail);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = colors[0];
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
 
 function drawJaggedLine(ctx, points, jitter = 0) {
   ctx.beginPath();
@@ -2844,8 +2918,23 @@ export function drawBullets(ctx) {
   const { bullets, player } = state;
   const isScoutQ = player?.characterId === "scout" && (state.activeBuffs?.q || 0) > 0;
   const isFrostR = player?.characterId === "frost" && (state.activeBuffs?.r || 0) > 0;
+  const fastBulletLoad = shouldUseFastBulletDraw(state, bullets.length);
+  const extremeBulletLoad = shouldUseExtremeBulletDraw(bullets.length);
+  const restoreParticlePush = withParticleSpawnBudget(state);
 
+  try {
   for (let b of bullets) {
+    if (!isBulletVisible(b)) continue;
+    if (
+      fastBulletLoad &&
+      !b.isMeteor &&
+      !b.isShuriken &&
+      (extremeBulletLoad || b.isPlayer || b.visualStyle)
+    ) {
+      drawFastBullet(ctx, b);
+      continue;
+    }
+
     // ===== METEOR =====
     if (b.isMeteor) {
       ctx.save();
@@ -3367,5 +3456,8 @@ export function drawBullets(ctx) {
         ctx.fill();
       }
     }
+  }
+  } finally {
+    restoreParticlePush();
   }
 }

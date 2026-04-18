@@ -45,7 +45,7 @@ export function spawnBullet(sx, sy, tx, ty, isPlayer, style = 0, source = "enemy
         vy: Math.sin(angle) * speed,
         isPlayer,
         radius: isPlayer ? 4 : 8,
-        life: 240,
+        life: isPlayer ? 130 : 220,
         style,
         damage: finalDamage,
         ownerCharacter,

@@ -1,6 +1,19 @@
 import { state } from "../../state.js";
 import { dist } from "../../utils.js";
 
+function isVisible(x, y, radius = 0, padding = 180) {
+  const cam = state.camera;
+  if (!cam) return true;
+  const width = cam.width || 0;
+  const height = cam.height || 0;
+  return (
+    x + radius >= cam.x - padding &&
+    x - radius <= cam.x + width + padding &&
+    y + radius >= cam.y - padding &&
+    y - radius <= cam.y + height + padding
+  );
+}
+
 // ===== GHOSTS =====
 export function drawEnemies(ctx) {
   const { ghosts, activeBuffs, player } = state;
@@ -9,6 +22,7 @@ export function drawEnemies(ctx) {
 
   for (let g of ghosts) {
     if (g.x < 0) continue;
+    if (!isVisible(g.x, g.y, g.radius || 12)) continue;
 
     // Guard zone indicator for mini-boss
     if (g.isMiniBoss && g.behavior === "guard") {
@@ -58,7 +72,7 @@ export function drawEnemies(ctx) {
     if (g.style === 1) {
       ctx.shadowBlur = 15;
       ctx.shadowColor = "#ff4400";
-      if (state.frameCount % 2 === 0) {
+      if (state.frameCount % 4 === 0 && (state.particles?.length || 0) < 160) {
         state.particles.push({
           x: g.x,
           y: g.y,
@@ -146,6 +160,7 @@ export function drawEnemies(ctx) {
 
   // ===== ELEMENTAL ENEMIES =====
   state.elementalEnemies.forEach((e) => {
+    if (!isVisible(e.x, e.y, e.radius || 15)) return;
     ctx.save();
 
     ctx.shadowBlur = 15;

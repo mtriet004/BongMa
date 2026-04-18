@@ -7,6 +7,51 @@ import { spawnSatelliteDrone } from "../world/element.js";
 import { spawnBullet, spawnHazard } from "../entities/helpers.js";
 import { spawnElementalZone } from "../game/elementalZone.js";
 
+function withinRadiusSq(x1, y1, x2, y2, radius) {
+  const dx = x1 - x2;
+  const dy = y1 - y2;
+  return dx * dx + dy * dy < radius * radius;
+}
+
+const GHOST_BUCKET_SIZE = 220;
+
+function ghostBucketKey(cx, cy) {
+  return `${cx},${cy}`;
+}
+
+function buildGhostBuckets(ghosts) {
+  const buckets = new Map();
+  for (const ghost of ghosts) {
+    if (!ghost || ghost.x <= 0) continue;
+    ghost._removedByBullet = false;
+    const cx = Math.floor(ghost.x / GHOST_BUCKET_SIZE);
+    const cy = Math.floor(ghost.y / GHOST_BUCKET_SIZE);
+    const key = ghostBucketKey(cx, cy);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = [];
+      buckets.set(key, bucket);
+    }
+    bucket.push(ghost);
+  }
+  return buckets;
+}
+
+function getNearbyGhosts(buckets, x, y, out) {
+  out.length = 0;
+  const cx = Math.floor(x / GHOST_BUCKET_SIZE);
+  const cy = Math.floor(y / GHOST_BUCKET_SIZE);
+
+  for (let oy = -1; oy <= 1; oy++) {
+    for (let ox = -1; ox <= 1; ox++) {
+      const bucket = buckets.get(ghostBucketKey(cx + ox, cy + oy));
+      if (bucket) out.push(...bucket);
+    }
+  }
+
+  return out;
+}
+
 export function playerTakeDamage(ctx, canvas, changeStateFn, amount = 1) {
   if (state.player.isInvincible) return; // FIX I-FRAMES
   let player = state.player;
@@ -106,7 +151,7 @@ export function playerTakeDamage(ctx, canvas, changeStateFn, amount = 1) {
 
       // 🧹 clear bullet
       state.bullets = state.bullets.filter(
-        (b) => dist(b.x, b.y, player.x, player.y) > 150,
+        (b) => !withinRadiusSq(b.x, b.y, player.x, player.y, 150),
       );
 
       // 🎨 trigger effect
@@ -170,6 +215,8 @@ export function updateBullets(
   let isOracleQ = player.characterId === "oracle" && buffs.q > 0;
   let isFrostR = player.characterId === "frost" && buffs.r > 0;
   let isHunterE = player.characterId === "hunter" && buffs.e > 0;
+  const ghostBuckets = buildGhostBuckets(ghosts);
+  const nearbyGhosts = [];
 
   if (state.windForce.timer > 0) {
     const fx = state.windForce.x;
@@ -213,8 +260,7 @@ export function updateBullets(
     let isSpiritE = player.characterId === "spirit" && buffs.e > 0;
 
     if (isSpiritE && !b.isPlayer) {
-      let d = dist(b.x, b.y, player.x, player.y);
-      if (d < 200) {
+      if (withinRadiusSq(b.x, b.y, player.x, player.y, 200)) {
         let angle = Math.atan2(b.y - player.y, b.x - player.x);
         let speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
         b.vx = Math.cos(angle) * speed;
@@ -224,7 +270,7 @@ export function updateBullets(
 
     let isEngineerR = player.characterId === "engineer" && buffs.r > 0;
     if (isEngineerR) {
-      if (!b.isPlayer && dist(b.x, b.y, player.x, player.y) < 120) {
+      if (!b.isPlayer && withinRadiusSq(b.x, b.y, player.x, player.y, 120)) {
         bullets.splice(i, 1);
         continue;
       }
@@ -235,14 +281,14 @@ export function updateBullets(
     } else {
       let speedMult = !b.isPlayer && isOracleQ ? 0.3 : 1;
 
-      if (!b.isPlayer && isFrostR && dist(b.x, b.y, player.x, player.y) < 200) {
+      if (!b.isPlayer && isFrostR && withinRadiusSq(b.x, b.y, player.x, player.y, 200)) {
         speedMult = 0.2;
       }
 
       if (
         !b.isPlayer &&
         isHunterE &&
-        dist(b.x, b.y, player.x, player.y) < 300
+        withinRadiusSq(b.x, b.y, player.x, player.y, 300)
       ) {
         speedMult = 0.2;
       }
@@ -254,8 +300,7 @@ export function updateBullets(
 
         // NẾU CHẠM MẶT ĐẤT
         if (b.y >= b.destY) {
-          const distToPlayer = dist(b.x, b.y, player.x, player.y);
-          if (distToPlayer < 600) {
+          if (withinRadiusSq(b.x, b.y, player.x, player.y, 600)) {
             state.screenShake.timer = 15;
             state.screenShake.intensity = 25;
             state.screenShake.type = "earth";
@@ -336,7 +381,7 @@ export function updateBullets(
       // SỬA LỖI ĐƠ GAME TẠI ĐÂY: Lưu danh sách quái đã trúng đạn xuyên
       if (!b.hitList) b.hitList = [];
 
-      if (boss && dist(b.x, b.y, boss.x, boss.y) < boss.radius + b.radius) {
+      if (boss && withinRadiusSq(b.x, b.y, boss.x, boss.y, boss.radius + b.radius)) {
         if (!b.hitList.includes("boss")) {
           b.hitList.push("boss");
           let finalDmg = b.damage || 1;
@@ -428,7 +473,7 @@ export function updateBullets(
       if (state.crates) {
         for (let j = state.crates.length - 1; j >= 0; j--) {
           let crate = state.crates[j];
-          if (dist(b.x, b.y, crate.x, crate.y) < crate.radius + b.radius) {
+          if (withinRadiusSq(b.x, b.y, crate.x, crate.y, crate.radius + b.radius)) {
             crate.hp -= b.damage || 1;
             playSound("damage");
 
@@ -456,7 +501,7 @@ export function updateBullets(
 
         if (b.hitList.includes(e)) continue;
 
-        if (dist(b.x, b.y, e.x, e.y) < e.radius + b.radius) {
+        if (withinRadiusSq(b.x, b.y, e.x, e.y, e.radius + b.radius)) {
           b.hitList.push(e);
 
           let finalDmg = b.damage || 1;
@@ -509,8 +554,10 @@ export function updateBullets(
         continue;
       }
       let hitGhost = false;
-      for (let j = ghosts.length - 1; j >= 0; j--) {
-        let g = ghosts[j];
+      const ghostCandidates = getNearbyGhosts(ghostBuckets, b.x, b.y, nearbyGhosts);
+      for (let j = ghostCandidates.length - 1; j >= 0; j--) {
+        let g = ghostCandidates[j];
+        if (!g || g._removedByBullet) continue;
 
         // Đã trúng thì bỏ qua, không tính sát thương lần 2 gây lag!
         if (b.hitList.includes(g)) continue;
@@ -518,7 +565,7 @@ export function updateBullets(
         if (
           (g.isStunned <= 0 || g.parentZoneId) && // SỬA: Quái bầy không được hưởng "miễn nhiễm" khi bị stun
           g.x > 0 &&
-          dist(b.x, b.y, g.x, g.y) < g.radius + b.radius
+          withinRadiusSq(b.x, b.y, g.x, g.y, g.radius + b.radius)
         ) {
           b.hitList.push(g);
 
@@ -526,7 +573,9 @@ export function updateBullets(
             (state.isBossLevel && !g.isMiniBoss && !g.isSubBoss) ||
             g.parentZoneId
           ) {
-            ghosts.splice(j, 1);
+            const removeIdx = ghosts.indexOf(g);
+            if (removeIdx >= 0) ghosts.splice(removeIdx, 1);
+            g._removedByBullet = true;
             if (g.parentZoneId) {
               const zone = state.swarmZones.find(
                 (sz) => sz.id === g.parentZoneId,
@@ -668,16 +717,15 @@ export function updateBullets(
     } else {
       if (
         isSummonerQ &&
-        dist(b.x, b.y, player.x, player.y) < player.radius + 40
+        withinRadiusSq(b.x, b.y, player.x, player.y, player.radius + 40)
       ) {
         bullets.splice(i, 1);
         continue;
       }
       // --- Collision with Player ---
-      const d = dist(b.x, b.y, player.x, player.y);
       const hitRadius = b.style === 5 ? 25 : b.radius + player.radius; // Larger hit for spears
 
-      if (d < hitRadius) {
+      if (withinRadiusSq(b.x, b.y, player.x, player.y, hitRadius)) {
         if (state.player.gracePeriod <= 0) {
           playerTakeDamage(ctx, canvas, changeStateFn, b.damage || 1);
           state.player.gracePeriod = 20;

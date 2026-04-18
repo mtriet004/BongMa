@@ -26,6 +26,7 @@ import { spawnBullet } from "../entities/helpers.js";
 import { spawnCrate, spawnCrystal } from "../world/element.js";
 import { ATTACK_MODES, SPECIAL_SKILLS } from "../entities/bosses/patterns.js";
 import { updateMultiplayer } from "../multiplayer/mpFlow.js";
+import { enforceBulletBudget, enforceVfxBudget } from "./vfxBudget.js";
 
 export function update(ctx, canvas, changeStateFn) {
   const { player, boss, keys, mouse, activeBuffs } = state;
@@ -90,6 +91,8 @@ export function update(ctx, canvas, changeStateFn) {
 
   // --- 3. GỌI LOGIC NHÂN VẬT ---
   updateActiveCharacter(state, ctx, canvas, buffs, changeStateFn);
+  enforceBulletBudget(state);
+  enforceVfxBudget(state);
 
   // --- 4. Tính toán chỉ số cuối cùng & Di chuyển ---
   let currentSpeed =
@@ -288,6 +291,7 @@ export function update(ctx, canvas, changeStateFn) {
     shotThisFrame = true;
     targetX = mouse.x;
     targetY = mouse.y;
+    enforceBulletBudget(state);
   }
   mouse.clicked = false;
 
@@ -342,6 +346,8 @@ export function update(ctx, canvas, changeStateFn) {
   }
   // Update Bullets
   updateBullets(ctx, canvas, changeStateFn, state.timeFrozenModifier);
+  enforceBulletBudget(state);
+  enforceVfxBudget(state);
 
   // --- 7. SWARM ZONES & QUẢN LÝ QUÁI (AI) ---
   let activeZone = null;
