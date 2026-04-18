@@ -2,6 +2,7 @@ import { state } from "../../state.js";
 import { drawAlchemistPlayer } from "../../characters/legendary/alchemist.js";
 import { drawBerserkerPlayer } from "../../characters/legendary/berserker.js";
 import { drawBrawlerPlayer } from "../../characters/common/brawler.js";
+import { drawDestroyerPlayer } from "../../characters/mythical/destroyer.js";
 import { drawDruidPlayer } from "../../characters/common/druid.js";
 import { drawEngineerPlayer } from "../../characters/common/engineer.js";
 import { drawGhostPlayer } from "../../characters/common/ghost.js";
@@ -301,6 +302,11 @@ export function drawPlayer(ctx) {
 
   if (char === "painter") {
     drawPainterPlayer(ctx, state, buffs, isInvulnSkill);
+    return;
+  }
+
+  if (char === "destroyer") {
+    drawDestroyerPlayer(ctx, state, buffs, isInvulnSkill);
     return;
   }
 

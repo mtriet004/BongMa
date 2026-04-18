@@ -28,6 +28,7 @@ const PLAYER_BULLET_VISUALS = {
     scout: "scout_arc",
     necromancer: "necromancer_soul",
     painter: "painter_paint",
+    destroyer: "destroyer_ruin",
     medic: "medic_serum",
     tank: "tank_fortress",
 };
