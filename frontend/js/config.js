@@ -1,6 +1,6 @@
 export const FPS = 60;
 export const GHOST_DATA_KEY = "AsynchronousEchoes_V4";
-export const API_BASE_URL = "http://115.73.218.193:3005";
+export const API_BASE_URL = "https://bongma.storyoftri.xyz";
 export const BOSS_FRAGMENT_DROP_RATE = 1; // 100% chance
 export const PLAYER_MOVE_SPEED_MULTIPLIER = 0.85;
 export const PLAYER_DASH_SPEED_MULTIPLIER = 2.5;
