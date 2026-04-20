@@ -71,9 +71,10 @@ jobs:
             set -e
             cd ~/projects/BongMa
             
-            # Gán biến môi trường để docker-compose.yml biết lấy Image từ kho nào
+            # Khai báo biến
             export DOCKERHUB_USER=${{ secrets.DOCKERHUB_USERNAME }}
             
-            echo "${{ secrets.SSH_PASS }}" | sudo -S docker compose pull
-            echo "${{ secrets.SSH_PASS }}" | sudo -S docker compose up -d
+            # Thêm chữ -E vào sau sudo để nó không làm rơi mất biến DOCKERHUB_USER
+            echo "${{ secrets.SSH_PASS }}" | sudo -E -S docker compose pull
+            echo "${{ secrets.SSH_PASS }}" | sudo -E -S docker compose up -d
           EOF
