@@ -3,7 +3,7 @@ services:
   bongma-server:
     image: ${DOCKERHUB_USER}/bongma-backend:latest
     ports:
-      - "3000:3000"
+      - "3005:3000"
     env_file:        
       - .env     
     restart: always

@@ -14,7 +14,7 @@ export function connectSocket(serverIp = "localhost") {
 
   // socket.io được load qua CDN script tag trong index.html
   // eslint-disable-next-line no-undef
-  socket = io(`http://${serverIp}:3000`, {
+  socket = io(`http://${serverIp}:3005`, {
     transports: ["websocket"],
     reconnectionAttempts: 3,
   });
