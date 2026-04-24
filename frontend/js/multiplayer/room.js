@@ -12,7 +12,7 @@ export const mpState = {
   bossType: null,
   playerCount: 1,
   hpScale: 1,
-  serverIp: "localhost",
+  // serverIp removed — WAN mode dùng fixed server URL
 };
 
 /**

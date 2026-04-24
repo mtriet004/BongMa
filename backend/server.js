@@ -10,12 +10,18 @@ import { User } from "./models/User.js";
 import { setupSocketIO } from "./socket_handler.js";
 
 const app = express();
-app.use(cors({ origin: "*" }));
+const ALLOWED_ORIGINS = [
+  "https://bongma.storyoftri.xyz",
+  "http://localhost:25566", // dev only
+  "http://localhost:5500",  // dev only
+];
+
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
+  cors: { origin: ALLOWED_ORIGINS, methods: ["GET", "POST"], credentials: true },
 });
 setupSocketIO(io);
 
@@ -103,5 +109,5 @@ app.get("/api/load", authenticateToken, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, "0.0.0.0", () => console.log(`Server running on :${PORT} (LAN accessible)`));
+httpServer.listen(PORT, "0.0.0.0", () => console.log(`Server running on :${PORT} — WAN via api.bongma.storyoftri.xyz`));
 

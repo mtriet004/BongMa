@@ -1,22 +1,25 @@
 /**
  * socket.js — Quản lý kết nối Socket.io client
- * Import socket.io từ CDN đã được inject vào HTML
+ * WAN mode: kết nối tới api.bongma.storyoftri.xyz
  */
+
+const SERVER_URL = "https://api.bongma.storyoftri.xyz";
 
 let socket = null;
 
 /**
- * Kết nối đến server. serverIp là IP LAN của máy host.
- * VD: "192.168.1.5" hoặc "localhost"
+ * Kết nối đến server WAN. Không cần truyền IP nữa.
  */
-export function connectSocket(serverIp = "localhost") {
+export function connectSocket() {
   if (socket && socket.connected) return socket;
 
-  // socket.io được load qua CDN script tag trong index.html
   // eslint-disable-next-line no-undef
-  socket = io(`http://${serverIp}:3005`, {
-    transports: ["websocket"],
-    reconnectionAttempts: 3,
+  socket = io(SERVER_URL, {
+    transports: ["websocket", "polling"], // polling fallback cho WAN
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 10000,
   });
 
   socket.on("connect", () => {
