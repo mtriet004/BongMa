@@ -213,6 +213,19 @@ export function setupSocketIO(io) {
     });
 
     // ==============================
+    // RELAY BULLETS (snapshot từ mỗi player → broadcast cho room)
+    // ==============================
+    socket.on("player_bullets", ({ roomCode, bullets }) => {
+      const room = rooms.get(roomCode);
+      if (!room) return;
+      // Relay cho tất cả NGOẠI TRỪ người gửi
+      socket.to(roomCode).emit("remote_bullets", {
+        ownerId: socket.id,
+        bullets,
+      });
+    });
+
+    // ==============================
     // REVIVE MECHANIC
     // ==============================
     socket.on("revive_update", ({ roomCode, deadPlayerId, progress }) => {

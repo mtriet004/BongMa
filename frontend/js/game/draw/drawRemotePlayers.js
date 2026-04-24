@@ -109,6 +109,46 @@ export function drawRemotePlayers(ctx) {
 }
 
 /**
+ * Vẽ bullets của remote players để tất cả có thể thấy tấn công của nhau.
+ * state.remoteBullets là snapshot 60ms/lần, mỗi viên tự chạy với vx/vy giữa các update.
+ */
+export function drawRemoteBullets(ctx) {
+  if (!state.isMultiplayer || !state.remoteBullets || !state.remoteBullets.length) return;
+
+  const now = performance.now();
+  const STALE_MS = 200; // Xóa bullet quá cũ (server lag)
+
+  for (let i = state.remoteBullets.length - 1; i >= 0; i--) {
+    const b = state.remoteBullets[i];
+    // Thướt đẩy bullet theo vận tốc giữa các snapshot
+    b.x += (b.vx || 0) * 0.5;
+    b.y += (b.vy || 0) * 0.5;
+    b.life = (b.life || 30) - 1;
+
+    if (b.life <= 0 || (now - b._born) > STALE_MS) {
+      state.remoteBullets.splice(i, 1);
+      continue;
+    }
+
+    // Tìm màu theo owner
+    const owner = state.remotePlayers.find((rp) => rp.id === b.ownerId);
+    const color = CHARACTER_COLORS[owner?.characterId] || "#00ffcc";
+    const r = Math.max(3, b.radius || 5);
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, b.life / 15);
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = color;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+}
+
+/**
  * Vẽ tất cả revive zones
  * @param {CanvasRenderingContext2D} ctx
  */

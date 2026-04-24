@@ -10,6 +10,7 @@ import {
   setupGameListeners,
   startPlayerSync,
   startBossSync,
+  startBulletSync,
   stopAllSync,
   spawnLocalReviveZone,
   onLocalPlayerRevived,
@@ -142,6 +143,7 @@ export function startMultiplayerBossArena(bossType, hpScale, players, changeStat
 
   // Bắt đầu sync
   startPlayerSync(mpState.roomCode);
+  startBulletSync(mpState.roomCode); // Tất cả players đều gửi bullets
   if (mpState.isHost) {
     startBossSync(mpState.roomCode);
   }

@@ -13,9 +13,11 @@ import {
   emitReviveUpdate,
   emitPlayerRevived,
 } from "./socket.js";
+import { getSocket } from "./socket.js";
 
 let playerSyncInterval = null;
 let bossSyncInterval = null;
+let bulletSyncInterval = null;
 
 // ==============================
 // SETUP LISTENERS
@@ -133,6 +135,21 @@ export function setupGameListeners(socket) {
     state.reviveZones = state.reviveZones.filter(
       (z) => z.deadPlayerId !== playerId,
     );
+    // Xóa remote bullets của player đã rời
+    if (state.remoteBullets) {
+      state.remoteBullets = state.remoteBullets.filter((b) => b.ownerId !== playerId);
+    }
+  });
+
+  // Nhận snapshot bullets từ remote players
+  socket.on("remote_bullets", ({ ownerId, bullets }) => {
+    if (!state.remoteBullets) state.remoteBullets = [];
+    // Thay thế toàn bộ bullets cũ của owner này
+    state.remoteBullets = state.remoteBullets.filter((b) => b.ownerId !== ownerId);
+    const now = performance.now();
+    for (const b of bullets) {
+      state.remoteBullets.push({ ...b, ownerId, _born: now });
+    }
   });
 
   // ==============================
@@ -224,7 +241,27 @@ export function startPlayerSync(roomCodeOrSocket) {
     });
   }, 1000 / 30);
 }
-/** Stop all synchronization intervals. */
+/** Gửi snapshot bullets của local player cho các player khác (60ms/lần) */
+export function startBulletSync(roomCode) {
+  if (bulletSyncInterval) clearInterval(bulletSyncInterval);
+  bulletSyncInterval = setInterval(() => {
+    const socket = getSocket();
+    if (!socket || !state.bullets) return;
+    // Chỉ gửi player bullets, tối đa 30 viên để tiết kiệm bandwidth
+    const playerBullets = state.bullets
+      .filter((b) => b.isPlayer)
+      .slice(0, 30)
+      .map((b) => ({
+        x: b.x, y: b.y,
+        vx: b.vx, vy: b.vy,
+        radius: b.radius || 5,
+        style: b.visualStyle || b.style || 0,
+        life: b.life,
+      }));
+    socket.emit("player_bullets", { roomCode, bullets: playerBullets });
+  }, 60);
+}
+
 export function stopAllSync() {
   if (playerSyncInterval) {
     clearInterval(playerSyncInterval);
@@ -234,6 +271,11 @@ export function stopAllSync() {
     clearInterval(bossSyncInterval);
     bossSyncInterval = null;
   }
+  if (bulletSyncInterval) {
+    clearInterval(bulletSyncInterval);
+    bulletSyncInterval = null;
+  }
+  state.remoteBullets = [];
 }
 
 // ==============================
